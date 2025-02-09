@@ -55,29 +55,34 @@ class XMLProcessor:
             raise
 
     def load_mei_file(self, file_path: str) -> BeautifulSoup:
-        """Load and parse MEI XML file.  It ensures we use UTF-8 coding."""
-        try:
-            if not os.path.exists(file_path):
-                self._log(f"File not found: {file_path}")
-                raise FileNotFoundError(f"File not found: {file_path}")
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return BeautifulSoup(content, features='lxml-xml')
+    
+    # def load_mei_file(self, file_path: str) -> BeautifulSoup:
+    #     """Load and parse MEI XML file.  It ensures we use UTF-8 coding."""
+    #     try:
+    #         if not os.path.exists(file_path):
+    #             self._log(f"File not found: {file_path}")
+    #             raise FileNotFoundError(f"File not found: {file_path}")
             
-            # Open the file with UTF-16 encoding
-            with open(file_path, 'r', encoding='utf-16') as file:
-                self.soup = BeautifulSoup(file, 'xml')
+    #         # Open the file with UTF-16 encoding
+    #         with open(file_path, 'r', encoding='utf-16') as file:
+    #             self.soup = BeautifulSoup(file, 'xml')
             
-            return self.soup
-        except UnicodeDecodeError:
-            self._log(f"Unicode decoding error for file {file_path}. Trying UTF-8.")
-            try:
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    self.soup = BeautifulSoup(file, 'xml')
-                return self.soup
-            except Exception as e:
-                self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
-                raise ValueError(f"Failed to parse MEI file: {str(e)}")
-        except Exception as e:
-            self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
-            raise ValueError(f"Failed to parse MEI file: {str(e)}")
+    #         return self.soup
+    #     except UnicodeDecodeError:
+    #         self._log(f"Unicode decoding error for file {file_path}. Trying UTF-8.")
+    #         try:
+    #             with open(file_path, 'r', encoding='utf-8') as file:
+    #                 self.soup = BeautifulSoup(file, 'xml')
+    #             return self.soup
+    #         except Exception as e:
+    #             self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
+    #             raise ValueError(f"Failed to parse MEI file: {str(e)}")
+    #     except Exception as e:
+    #         self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
+    #         raise ValueError(f"Failed to parse MEI file: {str(e)}")
         
     def _fix_elisions(self) -> BeautifulSoup:
         """Fix syllable elisions in the MEI files.  When exported from Sibelius the elisions results in two syllable elements per note.  This module finds the double syllable notes, then reformats the two syllables as a single
