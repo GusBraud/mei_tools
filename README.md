@@ -125,3 +125,185 @@ file_path, status in results.items():
     print(f"Processed {status}: {file_path}")
 ```
 
+## MEI Music Feature Correction
+
+The `mei_music_feature_processor.py` is a modular tool.  That is:  with any folder of MEI files you have the option to run various independent correction routines.  These are described in detail below.
+
+## Required Libraries
+
+Before running the processor, ensure you have installed and imported the necessary libraries. You'll need:
+
+- `typing`
+- `BeautifulSoup` from `bs4`
+- `os`
+- `pathlib`
+- `functools`
+- `random`
+
+
+You will also need to make sure that the `mei_music_feature_processor.py` is in the same directory as your Jupyter Notebook.
+
+## Code to Run the Processor
+
+Here's the step-by-step code to run the XML processor in a Jupyter Notebook:
+
+## Step 1: Import the required libraries.
+
+```python
+from typing import List, Dict, Optional, Callable
+from bs4 import BeautifulSoup
+import os
+from pathlib import Path
+from functools import partial
+import random
+```
+
+You will also need to make sure that the `mei_music_feature_processor.py` is in the same directory as your Jupyter Notebook.
+
+## Step 2:  Import the Processor and Set Up Modules and Folders
+
+```python
+from mei_music_feature_processor import XMLProcessor
+
+processor = XMLProcessor(source_folder="MEI", # this is your source folder 
+                        output_dir="MEI_Updates_2", # this is the destination
+                        verbose=False) # this determines whether you see full log of steps
+
+# Enable the modules you want
+processor.remove_incipit = True
+processor.remove_chord = True
+processor.remove_senfl_bracket = True
+processor.remove_empty_verse = True
+processor.remove_lyrics = False
+processor.remove_tstamp_vel = True
+processor.remove_chord = True
+processor.collapse_layers = True
+processor.remove_empty_verses = True
+processor.ficta_to_supplied = True
+processor.add_voice_labels = True
+processor.slur_to_tie = True
+
+# Process files with all modules.  Items in this list must be `True` above to work!
+results = processor.process_files([
+    'fix_elisions',
+    'slur_to_tie',
+    'remove_incipit',
+    'remove_tstamp_vel',
+    'remove_chord',
+    'remove_senfl_bracket',
+    'remove_empty_verse',
+    'collapse_layers',
+    'remove_empty_verses',
+    'remove_chords',
+    'ficta_to_supplied',
+    'add_voice_labels'
+])
+# Check the results
+for file_path, status in results.items():
+    if status == "success":
+        print(f"Successfully processed: {file_path}")
+    else:
+        print(f"Error processing {file_path}: {status}")
+```
+
+#### Notes
+- set `verbose=True` for detailed output during processing.
+- `results` dictionary will contain the outcome for each file processed.
+- Ensure that your `source_folder` contains the MEI files you want to process.
+- The `output_dir` designates where processed files will be saved.
+- Adjust the list of modules in `process_files()` based on your needs.
+- Modify the `remove_lyrics` property if you want to keep or remove lyrics.
+- The `verbose=True` option provides detailed output, which is useful for debugging but may slow down processing.
+
+
+## Detailed Explanation of the Modules
+
+Note:  We can easily add more modules based on your experience with particular MEI files.
+
+
+#### _fix_elisions
+
+Fix syllable elisions in the MEI files.  When exported from Sibelius the elisions results in two syllable elements per note.  This module finds the double syllable notes, then reformats the two syllables as a single
+tag for that note.  The two syllables are connected with an underscore, which renders correctly in Verovio, and is valid MEI.
+
+---
+
+#### _slur_to_tie
+
+Replace slurs with ties in MEI files.  Occasionally editors mistakenly encode ties as slurs.  This module checks for these and fixes them.
+
+---
+
+#### _ficta_to_supplied
+
+Convert ficta to supplied.  With the Sib_MEI export module, musica ficta is stored as text and not as a supplied element.  This module fixes such errors, provided that the note to which the ficta appliesis given the color 'red' in the original Sibelius file.  The function looks for accid elements associated with red notes and converts them into proper MEI supplied elements.
+
+---
+
+#### _remove_variants
+
+Remove variant elements and their contents.  Files with <app> elements include variant readings. There are some cases in which we want to preserve only the lemma (for example:  analysis).This module removes the <app> elements.
+
+---
+
+#### _remove_chords
+
+Remove chord elements.  These are sometimes found in XML files, and this module removes them.
+
+---
+
+#### _collapse_layers
+
+Collapse layers within staff elements.  Again, some files put notes on different MEI layers.  This module combines those layers.
+
+---
+
+#### _remove_empty_verses
+
+Remove empty verse elements.  In some cases we find extra verse elements that nevertheless lack content.  These create problems for layout with Verovio, and so we can remove them.
+
+---
+
+#### _remove_anchored_text
+
+Remove anchoredText elements.  Anchored text elements can create strange effects when we render files with Verovio.  We can remove them with this module.
+
+---
+
+#### _remove_incipit
+
+Process measure numbers after removing incipit.  Some early music files include incipits (prefatory staves) that include information about original clefs and noteheads.  These are normally given a lable of "0" in the original file.  But they can disrupt the regular measure numbers throughout the remainder of the score.  This module removes the incipit and renumbers the remaining bars so that the labels and bar numbers are the same, and start with "1". 
+
+---
+
+#### _remove_tstamp_vel
+
+Remove timestamp and velocity attributes from notes, rests, and mRests.  The tstamp.real attribute might be a problem in some contexts, and so we remove it. 
+        
+
+---
+
+#### _remove_senfl_bracket
+
+Remove Senfl bracket elements. This module removes some special brackets inserted by editors of the Senfl edition.
+
+---
+
+#### _remove_empty_verse
+
+Remove empty verse elements.  Some verse elements are in fact empty, and can distort formatting with Verovio.  We remove them with this module.
+
+---
+
+#### _remove_lyrics
+
+Remove all lyrics, including nested verse elements.  Some files imported from XML or other sources have corrupted lyrics.  Sometimes it is simply better to start over with text underlay in this case, and so this module removes all lyrics.  The files can then be opened with MuseScore for further updates.
+
+---
+
+#### _add_voice_labels
+
+Add voice labels to staff definitions.  It is helpful for Verovio and  CRIM intervals to have voice names as 'label' attributes in our files.  This module takes care of that.
+
+
+
