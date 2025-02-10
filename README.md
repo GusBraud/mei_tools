@@ -206,6 +206,26 @@ for file_path, status in results.items():
         print(f"Error processing {file_path}: {status}")
 ```
 
+#### Run Just One Module?
+
+
+
+```python
+# Create an instance of the processor
+processor = XMLProcessor(
+    source_folder="MEI testing",  # Optional: defaults to current directory
+    output_dir="MEI_Updates_2",   # Optional: defaults to "MEI_Updates"
+    verbose=True
+)
+
+# set module to `True`
+
+processor.remove_lyrics = True
+
+# rocess files with lyrics removal
+results = processor.process_files(['remove_lyrics'])
+```
+
 #### Notes
 - set `verbose=True` for detailed output during processing.
 - `results` dictionary will contain the outcome for each file processed.
