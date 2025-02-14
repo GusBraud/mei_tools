@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='mei-tools',
+    name='mei_tools',
     version='1.0.0',
     description='MEI file processing tools',
     author='Your Name',
