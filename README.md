@@ -1,14 +1,41 @@
-# Music Encoding Initiative Files:  Curating Metadata and Correcting Encoding Errors
+# MEI Tools:  Curating Metadata and Correcting Encoding Errors
 
-You fill find two different scripts here:
+You fill find two different sets of processors here (they each consist of a collection of functions, as you can see via the github repository):
 
-* `mei_metadata_processor.py` 
-* `mei_music_feature_processor.py`
+* `mei_metadata_processor.py` [takes in a csv or json file and pushes values to the MEI header]
+* `mei_music_feature_processor.py` [edits the MEI body in order to correct and improve music data, including problems with slurs, musica ficta, and many features]
 
+##  Installation
+
+You will need to install MEI Tools in your virtual environment in order to use them with MEI files.
+
+Here we assume that you are doing all of this in a Jupyter Notebook, which simplifies the process of working with a folder of 'source' files (the ones you want to process) and a folder of 'output' files (the files after they have been corrected).
+
+Here is now to install the MEI Tools:
+
+from a **terminal** in your virtual environment:
+
+```python
+pip install git+https://github.com/RichardFreedman/mei_tools`
+```
+
+From a terminal in your virtual environment, check that the tools have been installed:
+
+```python
+python -c "import mei_tools; print('import successful')"
+```
+
+or open a Jupyter Notebook, create a new cell; add the following to it, and run the cell:
+
+```python
+import mei_tools
+```
+
+If there are no error messages, you are ready to go!
+
+Next you will need to call up an instance of the processor you want. The following sections explain this in detail for each.
 
 ## MEI Metadata Updater
-
-Remember that this python file must be in the same directory as your notebook!
 
 The processor takes in:
 
@@ -73,9 +100,12 @@ from pathlib import Path
 import logging
 import os
 import pandas as pd
+```
 
-# the following refers to 'mei_metadata_processor.py` file, and needs to be in the same folder as this NB
-from mei_metadata_processor import MEI_Metadata_Updater 
+Now import the `MEI_Metadata_Updater` from `mei_tools`
+
+```python
+from mei_tools import MEI_Metadata_Updater
 ```
 
 #### Optional Error Logging
@@ -100,7 +130,7 @@ crim_metadata_dict_list = df.to_dict(orient='records')
 
 ### Step 3: Set Up the Updater with Source Folder, Output Folder, and Metadata List
 
-This should look something like this.  You might want to give the source and output folderrs different names than the ones shown here:
+This should look something like this.  You might want to give the source and output folders different names than the ones shown here:
 
 ```python
 updater = MEI_Metadata_Updater(
@@ -127,49 +157,43 @@ file_path, status in results.items():
 
 ## MEI Music Feature Correction
 
-The `mei_music_feature_processor.py` is a modular tool.  That is:  with any folder of MEI files you have the option to run various independent correction routines.  These are described in detail below.
+The `mei_music_feature_processor.py` is a **modular tool**.  That is:  with any folder of MEI files you have the option to run various independent correction routines.  These are described in detail below, but include:
 
-## Required Libraries
+- wrapping editorial accidentals in their correct <supplied> tags
+- adding voice labels to the staff definitions (for use with Verovio and CRIM Intervals)
+- correction of slurs to ties (when editors mistaken encode the latter as the former)
+- removal of prefatory 'incipit' staves
+- removal of 'chord' elements used for ambitus in some transcriptions
+- removal of empty verses (sometimes produced by conversion from other formats)
+- removal of all lyrics (an extreme approach, when conversion pathways fail)
+- collapsing layer elements (in which notes are mistakenly encoded as being in different voices but on the same staff)
+- removal of timestamp vel attributes (the product of some conversion routines)
+- removal of special editorial brackets used in The Senfl Edition files
 
-Before running the processor, ensure you have installed and imported the necessary libraries. You'll need:
+The modules can be run as a set or singly.
 
-- `typing`
-- `BeautifulSoup` from `bs4`
-- `os`
-- `pathlib`
-- `functools`
-- `random`
+We can also determine the _order_ in which they are run on each file.
+
+It is not difficult to produce other modules for special needs.
 
 
-You will also need to make sure that the `mei_music_feature_processor.py` is in the same directory as your Jupyter Notebook.
+## Step 1:  Import the Music Feature Processor and Set Up Modules and Folders
 
-## Code to Run the Processor
 
-Here's the step-by-step code to run the XML processor in a Jupyter Notebook:
-
-## Step 1: Import the required libraries.
+We import the **Music Featurer** from mei_tools, and define the soure and output folders.  Also note option to display a full log of the steps taken while the tool runs.
 
 ```python
-from typing import List, Dict, Optional, Callable
-from bs4 import BeautifulSoup
-import os
-from pathlib import Path
-from functools import partial
-import random
+from mei_tools import Music_Feature_Processor
+processor = Music_Feature_Processor(source_folder="MEI", # this is your source folder 
+                        output_dir="MEI_Updates", # this is the destination
+                        verbose=False) # this determines whether you see full log of steps
 ```
 
-You will also need to make sure that the `mei_music_feature_processor.py` is in the same directory as your Jupyter Notebook.
+## Step 2: Enable the Modules
 
-## Step 2:  Import the Processor and Set Up Modules and Folders
+`True` or `False` for each!  They must be `True` here to run below!
 
 ```python
-from mei_music_feature_processor import XMLProcessor
-
-processor = XMLProcessor(source_folder="MEI", # this is your source folder 
-                        output_dir="MEI_Updates_2", # this is the destination
-                        verbose=False) # this determines whether you see full log of steps
-
-# Enable the modules you want
 processor.remove_incipit = True
 processor.remove_chord = True
 processor.remove_senfl_bracket = True
@@ -182,8 +206,14 @@ processor.remove_empty_verses = True
 processor.ficta_to_supplied = True
 processor.add_voice_labels = True
 processor.slur_to_tie = True
+```
 
-# Process files with all modules.  Items in this list must be `True` above to work!
+
+## Step 3:  Process the Files with the Requested Modules
+
+Note:  Items in this list must be `True` above to work!
+
+```
 results = processor.process_files([
     'fix_elisions',
     'slur_to_tie',
@@ -198,7 +228,13 @@ results = processor.process_files([
     'ficta_to_supplied',
     'add_voice_labels'
 ])
-# Check the results
+
+```
+### Optional:  Progress Check
+
+Note that this is distinct from the `verbose` setting above, which reports each step for each file!
+
+```
 for file_path, status in results.items():
     if status == "success":
         print(f"Successfully processed: {file_path}")
@@ -206,8 +242,7 @@ for file_path, status in results.items():
         print(f"Error processing {file_path}: {status}")
 ```
 
-#### Run Just One Module?
-
+### Optional:  Run Just One Module?
 
 
 ```python
@@ -226,14 +261,14 @@ processor.remove_lyrics = True
 results = processor.process_files(['remove_lyrics'])
 ```
 
+
+
 #### Notes
-- set `verbose=True` for detailed output during processing.
+- the `verbose=True` option provides detailed output, which is useful for debugging but may slow down processing.
 - `results` dictionary will contain the outcome for each file processed.
 - Ensure that your `source_folder` contains the MEI files you want to process.
 - The `output_dir` designates where processed files will be saved.
 - Adjust the list of modules in `process_files()` based on your needs.
-- Modify the `remove_lyrics` property if you want to keep or remove lyrics.
-- The `verbose=True` option provides detailed output, which is useful for debugging but may slow down processing.
 
 
 ## Detailed Explanation of the Modules
