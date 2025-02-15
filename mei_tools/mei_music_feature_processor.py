@@ -5,14 +5,14 @@ from pathlib import Path
 from functools import partial
 import random
 
-class XMLProcessor:
+class Music_Feature_Processor:
     def __init__(
         self,
         source_folder: Optional[str] = None,
         output_dir: Optional[str] = None,
         verbose: bool = True
     ):
-        """Initialize the XML processor with optional parameters."""
+        """Initialize the Music_Feature_Processor with optional parameters."""
         self.source_folder = Path(source_folder) if source_folder else Path.cwd()
         self.output_dir = Path(output_dir) if output_dir else Path("MEI_Updates")
         self.soup = None
