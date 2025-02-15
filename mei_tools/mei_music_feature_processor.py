@@ -89,35 +89,6 @@ class XMLProcessor:
                 self._log(f"Could not decode file {file_path} with either UTF-8 or UTF-16")
                 raise Exception(f"Unable to decode file {file_path}. Please verify the file encoding.")
     
-    # def load_mei_file(self, file_path: str) -> BeautifulSoup:
-    #     with open(file_path, 'r', encoding='utf-8') as file:
-    #         content = file.read()
-    #     return BeautifulSoup(content, features='lxml-xml')
-    
-    # def load_mei_file(self, file_path: str) -> BeautifulSoup:
-    #     """Load and parse MEI XML file.  It ensures we use UTF-8 coding."""
-    #     try:
-    #         if not os.path.exists(file_path):
-    #             self._log(f"File not found: {file_path}")
-    #             raise FileNotFoundError(f"File not found: {file_path}")
-            
-    #         # Open the file with UTF-16 encoding
-    #         with open(file_path, 'r', encoding='utf-16') as file:
-    #             self.soup = BeautifulSoup(file, 'xml')
-            
-    #         return self.soup
-    #     except UnicodeDecodeError:
-    #         self._log(f"Unicode decoding error for file {file_path}. Trying UTF-8.")
-    #         try:
-    #             with open(file_path, 'r', encoding='utf-8') as file:
-    #                 self.soup = BeautifulSoup(file, 'xml')
-    #             return self.soup
-    #         except Exception as e:
-    #             self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
-    #             raise ValueError(f"Failed to parse MEI file: {str(e)}")
-    #     except Exception as e:
-    #         self._log(f"Failed to parse MEI file {file_path}: {str(e)}")
-    #         raise ValueError(f"Failed to parse MEI file: {str(e)}")
         
     def _fix_elisions(self) -> BeautifulSoup:
         """Fix syllable elisions in the MEI files.  When exported from Sibelius the elisions results in two syllable elements per note.  This module finds the double syllable notes, then reformats the two syllables as a single
@@ -689,40 +660,4 @@ class XMLProcessor:
             self._log(f"Error saving processed file: {str(e)}")
             raise
 
-    # def save_processed_file(self, soup: BeautifulSoup, output_path: str) -> None:
-    #     """Save processed MEI file with proper formatting and encoding. Note that we handle xml, mxml and mei somewhat differently."""
-    #     try:
-    #         # Add _rev_ to the filename
-    #         path = Path(output_path)
-    #         base = path.stem
-    #         suffix = path.suffix
-    #         new_path = path.parent / f"{base}_rev{suffix}"
-
-    #         # Determine the appropriate encoding based on the output file
-    #         if suffix.lower() == '.xml':
-    #             encoding = 'utf-16'  # Assuming .xml files are UTF-16
-    #         elif suffix.lower() == '.mxml':
-    #             encoding = 'utf-8'   # Assuming .mxml files are UTF-8
-    #         else:
-    #             encoding = 'utf-8'   # Default to UTF-8
-
-    #         xml_decl = '<?xml version="1.0" encoding="UTF-8"?>'
-    #         pretty_xml = soup.prettify()
-    #         if not pretty_xml.startswith('<?xml'):
-    #             pretty_xml = xml_decl + '\n' + pretty_xml
-
-    #         with open(new_path, 'w', encoding=encoding) as f:
-    #             f.write(str(pretty_xml))
-
-    #         # Verify file was saved
-    #         saved_file = Path(new_path)
-    #         if saved_file.exists():
-    #             self._log(f"File saved successfully: {new_path}")
-    #             # self._log(f"Saved file size: {saved_file.stat().st_size} bytes")
-    #             return new_path
-    #         else:
-    #             raise FileNotFoundError(f"File not saved: {new_path}")
-
-    #     except Exception as e:
-    #         self._log(f"Error saving processed file: {str(e)}")
-    #         raise
+    
