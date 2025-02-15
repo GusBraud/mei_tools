@@ -55,9 +55,44 @@ class XMLProcessor:
             raise
 
     def load_mei_file(self, file_path: str) -> BeautifulSoup:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
-        return BeautifulSoup(content, features='lxml-xml')
+        """
+        Load and parse MEI XML file, handling both UTF-8 and UTF-16 encodings.
+        
+        Args:
+            file_path (str): Path to the MEI XML file
+            
+        Returns:
+            BeautifulSoup: Parsed XML content
+            
+        Raises:
+            FileNotFoundError: If the file does not exist
+            Exception: If the file cannot be decoded with either UTF-8 or UTF-16
+        """
+        if not os.path.exists(file_path):
+            self._log(f"File not found: {file_path}")
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Try UTF-8 first (most common)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+                return BeautifulSoup(content, features='lxml-xml')
+                
+        except UnicodeDecodeError:
+            # If UTF-8 fails, try UTF-16
+            try:
+                with open(file_path, 'r', encoding='utf-16') as file:
+                    content = file.read()
+                    return BeautifulSoup(content, features='lxml-xml')
+                    
+            except UnicodeDecodeError:
+                self._log(f"Could not decode file {file_path} with either UTF-8 or UTF-16")
+                raise Exception(f"Unable to decode file {file_path}. Please verify the file encoding.")
+    
+    # def load_mei_file(self, file_path: str) -> BeautifulSoup:
+    #     with open(file_path, 'r', encoding='utf-8') as file:
+    #         content = file.read()
+    #     return BeautifulSoup(content, features='lxml-xml')
     
     # def load_mei_file(self, file_path: str) -> BeautifulSoup:
     #     """Load and parse MEI XML file.  It ensures we use UTF-8 coding."""
@@ -614,9 +649,10 @@ class XMLProcessor:
                 results[file_path] = f"error: {str(e)}"
                 self._log(f"Processing failed for {relative_path}: {str(e)}")
         return results
-
+    
     def save_processed_file(self, soup: BeautifulSoup, output_path: str) -> None:
-        """Save processed MEI file with proper formatting and encoding. Note that we handle xml, mxml and mei somewhat differently."""
+        """Save processed MEI file with proper formatting and UTF-8 encoding.
+        Note that we handle xml, mxml and mei files uniformly with UTF-8 encoding."""
         try:
             # Add _rev_ to the filename
             path = Path(output_path)
@@ -624,31 +660,69 @@ class XMLProcessor:
             suffix = path.suffix
             new_path = path.parent / f"{base}_rev{suffix}"
 
-            # Determine the appropriate encoding based on the output file
-            if suffix.lower() == '.xml':
-                encoding = 'utf-16'  # Assuming .xml files are UTF-16
-            elif suffix.lower() == '.mxml':
-                encoding = 'utf-8'   # Assuming .mxml files are UTF-8
-            else:
-                encoding = 'utf-8'   # Default to UTF-8
-
+            # Use consistent UTF-8 encoding for all file types
+            encoding = 'utf-8'
+            
+            # Create XML declaration with UTF-8 encoding
             xml_decl = '<?xml version="1.0" encoding="UTF-8"?>'
+            
+            # Ensure proper XML formatting
             pretty_xml = soup.prettify()
+            
+            # Add XML declaration if missing
             if not pretty_xml.startswith('<?xml'):
                 pretty_xml = xml_decl + '\n' + pretty_xml
-
+                
+            # Write file with UTF-8 encoding
             with open(new_path, 'w', encoding=encoding) as f:
-                f.write(str(pretty_xml))
+                f.write(pretty_xml)
 
             # Verify file was saved
             saved_file = Path(new_path)
             if saved_file.exists():
                 self._log(f"File saved successfully: {new_path}")
-                # self._log(f"Saved file size: {saved_file.stat().st_size} bytes")
                 return new_path
             else:
                 raise FileNotFoundError(f"File not saved: {new_path}")
-
+                
         except Exception as e:
             self._log(f"Error saving processed file: {str(e)}")
             raise
+
+    # def save_processed_file(self, soup: BeautifulSoup, output_path: str) -> None:
+    #     """Save processed MEI file with proper formatting and encoding. Note that we handle xml, mxml and mei somewhat differently."""
+    #     try:
+    #         # Add _rev_ to the filename
+    #         path = Path(output_path)
+    #         base = path.stem
+    #         suffix = path.suffix
+    #         new_path = path.parent / f"{base}_rev{suffix}"
+
+    #         # Determine the appropriate encoding based on the output file
+    #         if suffix.lower() == '.xml':
+    #             encoding = 'utf-16'  # Assuming .xml files are UTF-16
+    #         elif suffix.lower() == '.mxml':
+    #             encoding = 'utf-8'   # Assuming .mxml files are UTF-8
+    #         else:
+    #             encoding = 'utf-8'   # Default to UTF-8
+
+    #         xml_decl = '<?xml version="1.0" encoding="UTF-8"?>'
+    #         pretty_xml = soup.prettify()
+    #         if not pretty_xml.startswith('<?xml'):
+    #             pretty_xml = xml_decl + '\n' + pretty_xml
+
+    #         with open(new_path, 'w', encoding=encoding) as f:
+    #             f.write(str(pretty_xml))
+
+    #         # Verify file was saved
+    #         saved_file = Path(new_path)
+    #         if saved_file.exists():
+    #             self._log(f"File saved successfully: {new_path}")
+    #             # self._log(f"Saved file size: {saved_file.stat().st_size} bytes")
+    #             return new_path
+    #         else:
+    #             raise FileNotFoundError(f"File not saved: {new_path}")
+
+    #     except Exception as e:
+    #         self._log(f"Error saving processed file: {str(e)}")
+    #         raise
