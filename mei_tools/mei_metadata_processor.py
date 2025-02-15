@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 from lxml import etree
+import os
 
 class MEI_Metadata_Updater:
     def __init__(self, source_folder: Optional[str] = None, output_dir: Optional[str] = None, metadata_dict_list: List[Dict] = None):
