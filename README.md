@@ -16,7 +16,7 @@ Here is now to install the MEI Tools:
 from a **terminal** in your virtual environment:
 
 ```python
-pip install git+https://github.com/RichardFreedman/mei_tools`
+pip install git+https://github.com/RichardFreedman/mei_tools
 ```
 
 From a terminal in your virtual environment, check that the tools have been installed:
