@@ -219,7 +219,6 @@ results = processor.process_files([
     'slur_to_tie',
     'remove_incipit',
     'remove_tstamp_vel',
-    'remove_chord',
     'remove_senfl_bracket',
     'remove_empty_verse',
     'collapse_layers',
