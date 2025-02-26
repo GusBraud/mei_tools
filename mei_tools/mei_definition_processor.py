@@ -7,7 +7,7 @@ class MEI_Definition_Processor:
         self.source_folder = Path(source_folder) if source_folder else Path.cwd()
         self.output_dir = Path(output_dir) if output_dir else Path("updated_MEI_files")
         self.soup = None
-    
+        
     def add_mei_declaration(self, soup: BeautifulSoup) -> BeautifulSoup:
         """Adds MEI XML model declarations to the beginning of an XML document."""
         try:
@@ -20,12 +20,11 @@ class MEI_Definition_Processor:
             
             # Combine all declarations and content
             result = xml_decl + rng_declaration + sch_declaration + soup.prettify().split('\n', 1)[1]
-            
             return BeautifulSoup(result, features='lxml-xml')
         except Exception as e:
             print(f"Error adding declarations: {str(e)}")
             raise
-
+            
     def process_files(self, metadata_dict_list: list) -> dict:
         """Process MEI files and add declarations."""
         try:
@@ -44,18 +43,15 @@ class MEI_Definition_Processor:
                     metadata_dict = self._get_matching_dict(file_path.name, metadata_dict_list)
                     if metadata_dict:
                         self._apply_metadata_updates(metadata_dict)
-                        
-                        if self.output_dir:
-                            output_path = self.output_dir / Path(file_path).relative_to(self.source_folder)
-                            self.save_processed_file(self.soup, str(output_path))
-                        
-                        results[file_path] = "success"
-                    else:
-                        results[file_path] = "no_match"
-                        
+                    
+                    if self.output_dir:
+                        output_path = self.output_dir / Path(file_path).relative_to(self.source_folder)
+                        self.save_processed_file(self.soup, str(output_path))
+                    
+                    results[file_path] = "success"
                 except Exception as e:
                     results[file_path] = f"error: {str(e)}"
-                    
+            
             return results
         except Exception as e:
             print(f"Error processing files: {str(e)}")
