@@ -79,6 +79,9 @@ class MEI_Metadata_Updater:
                 # Load the MEI file
                 self.soup = self.load_mei_file(file_path)
 
+                 # Add MEI declarations
+                self.soup = self.add_mei_declaration(self.soup)
+
                 # Find the corresponding metadata dictionary
                 metadata_dict = self._get_matching_dict(file_path.name, metadata_dict_list)
                 
@@ -96,8 +99,7 @@ class MEI_Metadata_Updater:
                     self.logger.warning(f"No matching metadata dictionary found for file: {file_path.name}")
                     results[file_path] = "no_match"
 
-                # Add MEI declarations
-                self.soup = self.add_mei_declaration(self.soup)
+               
 
             except Exception as e:
                 results[file_path] = f"error: {str(e)}"
