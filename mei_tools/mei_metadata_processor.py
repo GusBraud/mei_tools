@@ -149,31 +149,35 @@ class MEI_Metadata_Updater:
             
         Returns:
             BeautifulSoup: The modified XML content with added declarations
-            
-        Raises:
-            ValueError: If the input is invalid
-            Exception: If processing fails
         """
         try:
             # Validate input
             if not soup or not hasattr(soup, 'contents'):
                 raise ValueError("Invalid BeautifulSoup object")
                 
-            # Get original XML declaration
-            xml_decl = str(soup.contents[0]).strip()
+            # Convert to string and split into lines
+            xml_lines = str(soup).splitlines()
+            
+            # Extract the XML declaration (first line)
+            xml_decl = xml_lines[0]
             
             # Create validation declarations
-            decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
-            decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
+            decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>'
+            decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
             
-            # Combine everything, ensuring proper spacing
-            new_content = (
-                xml_decl + '\n' +
-                decl1 + decl2 +
-                '\n' + str(soup)[len(xml_decl):].lstrip()
-            )
+            # Combine everything, preserving whitespace
+            new_content = [
+                xml_decl,
+                '',
+                decl1,
+                decl2,
+                *xml_lines[1:]  # Preserve remaining content
+            ]
             
-            # Parse and validate the modified content
+            # Join with proper line endings
+            new_content = '\n'.join(new_content)
+            
+            # Parse back to BeautifulSoup
             return BeautifulSoup(new_content, features='lxml-xml')
             
         except Exception as e:
