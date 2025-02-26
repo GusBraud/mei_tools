@@ -149,19 +149,27 @@ class MEI_Metadata_Updater:
             
         Returns:
             BeautifulSoup: The modified XML content with added declarations
+            
+        Raises:
+            ValueError: If the input is invalid
+            Exception: If processing fails
         """
         try:
-            # Get the original XML declaration
+            # Validate input
+            if not soup or not hasattr(soup, 'contents'):
+                raise ValueError("Invalid BeautifulSoup object")
+                
+            # Get original XML declaration
             orig_decl = str(soup.contents[0])
             
-            # Create the new declarations
+            # Create validation declarations
             decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
             decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
-            
+                    
             # Combine everything
             new_content = orig_decl + '\n' + decl1 + decl2 + str(soup)[len(orig_decl):]
             
-            # Create new BeautifulSoup object with the modified content
+            # Parse and validate the modified content
             return BeautifulSoup(new_content, features='lxml-xml')
             
         except Exception as e:
