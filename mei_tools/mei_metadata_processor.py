@@ -79,6 +79,9 @@ class MEI_Metadata_Updater:
                 # Load the MEI file
                 self.soup = self.load_mei_file(file_path)
 
+                # Add MEI declarations
+                self.soup = self.add_mei_declaration(self.soup)
+
                 # Find the corresponding metadata dictionary
                 metadata_dict = self._get_matching_dict(file_path.name, metadata_dict_list)
                 
@@ -136,6 +139,35 @@ class MEI_Metadata_Updater:
                 self._log(f"Could not decode file {file_path} with either UTF-8 or UTF-16")
                 raise Exception(f"Unable to decode file {file_path}. Please verify the file encoding.")
 
+    # add new declaration statements
+    def add_mei_declaration(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """
+        Adds MEI schema validation declarations to the XML document.
+        
+        Args:
+            soup (BeautifulSoup): The parsed XML content
+            
+        Returns:
+            BeautifulSoup: The modified XML content with added declarations
+        """
+        try:
+            # Get the original XML declaration
+            orig_decl = str(soup.contents[0])
+            
+            # Create the new declarations
+            decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
+            decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
+            
+            # Combine everything
+            new_content = orig_decl + '\n' + decl1 + decl2 + str(soup)[len(orig_decl):]
+            
+            # Create new BeautifulSoup object with the modified content
+            return BeautifulSoup(new_content, features='lxml-xml')
+            
+        except Exception as e:
+            self._log(f"Error adding MEI declarations: {str(e)}")
+            raise
+    
     def _apply_metadata_updates(self, metadata_dict: Dict):
         """Updates the metadata, using one file and its matching metadata dictionary."""
         self._log(f"Updating metadata for file: {self.file_path}")
