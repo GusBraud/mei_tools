@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from typing import Optional
 from pathlib import Path
 
-class MEI_Definition_Updater:
+class MEI_Definition_Processor:
     def __init__(self, source_folder: Optional[str] = None, output_dir: Optional[str] = None):
         self.source_folder = Path(source_folder) if source_folder else Path.cwd()
         self.output_dir = Path(output_dir) if output_dir else Path("updated_MEI_files")
