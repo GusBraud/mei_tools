@@ -142,47 +142,25 @@ class MEI_Metadata_Updater:
     # add new declaration statements
     def add_mei_declaration(self, soup: BeautifulSoup) -> BeautifulSoup:
         """
-        Adds MEI schema validation declarations after the XML declaration.
+        Adds MEI XML model declarations to the beginning of an XML document.
         
         Args:
-            soup (BeautifulSoup): The parsed XML content
+            soup: BeautifulSoup object containing MEI XML
             
         Returns:
-            BeautifulSoup: The modified XML content with added declarations
+            Modified BeautifulSoup object with added declarations
         """
-        try:
-            # Validate input
-            if not soup or not hasattr(soup, 'contents'):
-                raise ValueError("Invalid BeautifulSoup object")
-                
-            # Convert to string and split into lines
-            xml_lines = str(soup).splitlines()
-            
-            # Extract the XML declaration (first line)
-            xml_decl = xml_lines[0]
-            
-            # Create validation declarations
-            decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>'
-            decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>'
-            
-            # Combine everything, preserving whitespace
-            new_content = [
-                xml_decl,
-                '',
-                decl1,
-                decl2,
-                *xml_lines[1:]  # Preserve remaining content
-            ]
-            
-            # Join with proper line endings
-            new_content = '\n'.join(new_content)
-            
-            # Parse back to BeautifulSoup
-            return BeautifulSoup(new_content, features='lxml-xml')
-            
-        except Exception as e:
-            self._log(f"Error adding MEI declarations: {str(e)}")
-            raise
+        # Create the XML model declarations
+        rng_declaration = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
+        sch_declaration = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
+        
+        # Get the original XML declaration
+        xml_decl = soup.prettify().split('\n')[0] + '\n'
+        
+        # Combine all declarations and content
+        result = xml_decl + rng_declaration + sch_declaration + soup.prettify().split('\n', 1)[1]
+        
+        return BeautifulSoup(result, features='xml')
     
     def _apply_metadata_updates(self, metadata_dict: Dict):
         """Updates the metadata, using one file and its matching metadata dictionary."""
