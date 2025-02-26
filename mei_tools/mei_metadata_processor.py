@@ -142,7 +142,7 @@ class MEI_Metadata_Updater:
     # add new declaration statements
     def add_mei_declaration(self, soup: BeautifulSoup) -> BeautifulSoup:
         """
-        Adds MEI schema validation declarations to the XML document.
+        Adds MEI schema validation declarations after the XML declaration.
         
         Args:
             soup (BeautifulSoup): The parsed XML content
@@ -160,14 +160,18 @@ class MEI_Metadata_Updater:
                 raise ValueError("Invalid BeautifulSoup object")
                 
             # Get original XML declaration
-            orig_decl = str(soup.contents[0])
+            xml_decl = str(soup.contents[0]).strip()
             
             # Create validation declarations
             decl1 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
             decl2 = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
-                    
-            # Combine everything
-            new_content = orig_decl + '\n' + decl1 + decl2 + str(soup)[len(orig_decl):]
+            
+            # Combine everything, ensuring proper spacing
+            new_content = (
+                xml_decl + '\n' +
+                decl1 + decl2 +
+                '\n' + str(soup)[len(xml_decl):].lstrip()
+            )
             
             # Parse and validate the modified content
             return BeautifulSoup(new_content, features='lxml-xml')
