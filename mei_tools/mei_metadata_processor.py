@@ -79,9 +79,6 @@ class MEI_Metadata_Updater:
                 # Load the MEI file
                 self.soup = self.load_mei_file(file_path)
 
-                 # Add MEI declarations
-                self.soup = self.add_mei_declaration(self.soup)
-
                 # Find the corresponding metadata dictionary
                 metadata_dict = self._get_matching_dict(file_path.name, metadata_dict_list)
                 
@@ -98,8 +95,6 @@ class MEI_Metadata_Updater:
                     # Handle cases where no matching metadata is found
                     self.logger.warning(f"No matching metadata dictionary found for file: {file_path.name}")
                     results[file_path] = "no_match"
-
-               
 
             except Exception as e:
                 results[file_path] = f"error: {str(e)}"
@@ -141,29 +136,6 @@ class MEI_Metadata_Updater:
                 self._log(f"Could not decode file {file_path} with either UTF-8 or UTF-16")
                 raise Exception(f"Unable to decode file {file_path}. Please verify the file encoding.")
 
-    # add new declaration statements
-    def add_mei_declaration(self, soup: BeautifulSoup) -> BeautifulSoup:
-        """
-        Adds MEI XML model declarations to the beginning of an XML document.
-        
-        Args:
-            soup: BeautifulSoup object containing MEI XML
-            
-        Returns:
-            Modified BeautifulSoup object with added declarations
-        """
-        # Create the XML model declarations
-        rng_declaration = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>\n'
-        sch_declaration = '<?xml-model href="https://music-encoding.org/schema/4.0.1/mei-CMN.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n'
-        
-        # Get the original XML declaration
-        xml_decl = soup.prettify().split('\n')[0] + '\n'
-        
-        # Combine all declarations and content
-        result = xml_decl + rng_declaration + sch_declaration + soup.prettify().split('\n', 1)[1]
-        
-        return BeautifulSoup(result, features='xml')
-    
     def _apply_metadata_updates(self, metadata_dict: Dict):
         """Updates the metadata, using one file and its matching metadata dictionary."""
         self._log(f"Updating metadata for file: {self.file_path}")
