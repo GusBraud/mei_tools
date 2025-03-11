@@ -195,8 +195,6 @@ output_folder = "MEI_Final"
 
 ### Step 3:  Process the Files
 
-
-
 ```python
 for mei_path in mei_paths:
     music_feature_processor.process_music_features(mei_path,
@@ -214,27 +212,7 @@ for mei_path in mei_paths:
                                                   collapse_layers=False,
                                                   correct_ficta=True,
                                                   voice_labels=True)
-
-
-
-# Then, call the method on the instance
-for mei_path in mei_paths:
-    music_feature_processor.process_music_features(mei_path,
-                                                  output_folder="MEI_Final",
-                                                  remove_incipit=True,
-                                                  remove_variants=True,
-                                                  remove_anchored_text=True,
-                                                  remove_timestamp=True,
-                                                  remove_chord=True,
-                                                  remove_senfl_bracket=False,
-                                                  remove_empty_verse=False,
-                                                  remove_lyrics=False,
-                                                  fix_elisions=True,
-                                                  slur_to_tie=True,
-                                                  collapse_layers=False,
-                                                  correct_ficta=True,
-                                                  voice_labels=True)```
-
+```
 
 
 
