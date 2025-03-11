@@ -5,6 +5,8 @@ You fill find two different sets of processors here (they each consist of a coll
 * `mei_metadata_processor.py` [takes in a csv or json file and pushes values to the MEI header]
 * `mei_music_feature_processor.py` [edits the MEI body in order to correct and improve music data, including problems with slurs, musica ficta, and many features]
 
+Note that we also provide a **Jupyter Notebook** you can use in a local environment or in Google Collab.  It reproduces all the steps shown below.
+
 ##  Installation
 
 You will need to install MEI Tools in your virtual environment in order to use them with MEI files.
@@ -40,7 +42,7 @@ Next you will need to call up an instance of the processor you want. The followi
 The processor takes in:
 
 - A `source_folder` of MEI files to be updated (and also asks you specify an `output_dir` where the processed files will go)
-- A `list of metadata dictionaries` that provide the new data.  One convenient way to do this is by publishing a **[Google Sheet as CSV](https://docs.google.com/spreadsheets/d/1ctSIhNquWlacXQNLg92N_DV1H4lUJeXLn7iqKyLlhng/edit?gid=422384819#gid=422384819)**, then importing that sheet to Pandas and then converting it to a list of dictionaries (in which each row is a dictionary). Here is what one of our dictionary entries looks like.  The `keys` are the columns of our spreadsheet.  The `values` are the contents of each cell for a given row.
+- A `list of metadata dictionaries` that provide the new data.  One convenient way to do this is by publishing a **Google Sheet as a CSV file** as we do [here](https://docs.google.com/spreadsheets/d/1ctSIhNquWlacXQNLg92N_DV1H4lUJeXLn7iqKyLlhng/edit?gid=422384819#gid=422384819), then importing that sheet to Pandas and then converting it to a list of dictionaries (in which each row is a dictionary). Here is what one of our dictionary entries looks like.  The `keys` are the columns of our spreadsheet.  The `values` are the contents of each cell for a given row.
 
 ```python
 {'CRIM_ID': 'CRIM_Model_0001',
@@ -103,15 +105,21 @@ import pandas as pd
 
 ### Step 2: Load the Metadata from the Google Sheet; Create List of Dictionaries
 
+
+For example: 
+
 ```python
-# Load metadata CSV
+# Load metadata CSV from Gsheet:
 metadata_csv_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTSspBYGhjx-UJb-lIcy8Dmxjj3c1EuBqX_IWhi2aT1MvybZ_RAn8eq7gXfjzQ_NEfEq2hCZY5y-sHx/pub?output=csv"
+
+# a dataframe from that sheet
 df = pd.read_csv(metadata_csv_url).fillna('')
+
+# a list of dictionaries from the dataframe
 crim_metadata_dict_list = df.to_dict(orient='records')
 ```
 
 #### Step 3.  Specify Input and Output Folders
-
 
 For example:
 
@@ -121,6 +129,9 @@ output_folder = 'MEI_Updates'
 ```
 
 #### Step 4. Create an instance of the processor.  
+
+
+Like this:
 
 ```python
 metadata_updater = MEI_Metadata_Updater()
@@ -132,7 +143,7 @@ metadata_updater = MEI_Metadata_Updater()
 
 #### Step 5:  Build Tuples for Processor
 
-Here we make 'pairs' of each mei file and its corresponding metadata dictionary:
+Now we make 'pairs' of each mei file and its corresponding metadata dictionary and store them as a list of tuples:
 
 ```python
 pairs_to_process = []
@@ -145,7 +156,7 @@ for mei_path in mei_paths:
 
 #### Step 6: Process the Files
 
-Here we declare the results and run the updater, passing in the metadata dictionary list:
+And finally we declare the results and run the updater, passing in the metadata dictionary list:
 
 ```python
 for mei_file_name, matching_dict in pairs_to_process:
@@ -175,6 +186,9 @@ It is not difficult to produce other modules for special needs.
 
 ## Step 1:  Create an instance of the processor
 
+
+Like this:
+
 `music_feature_processor = MEI_Music_Feature_Processor()`
 
 Optionally you can also see a list of the functions within it:
@@ -194,6 +208,8 @@ output_folder = "MEI_Final"
 ```
 
 ### Step 3:  Process the Files
+
+Adjust the Booleans for each module as needed:
 
 ```python
 for mei_path in mei_paths:
