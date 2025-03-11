@@ -1,418 +1,235 @@
-from typing import List, Dict, Optional
-from bs4 import BeautifulSoup
-from datetime import datetime
-from pathlib import Path
-import logging
-from lxml import etree
 import os
+import xml.etree.ElementTree as ET
+from lxml import etree
+from datetime import datetime
+from copy import deepcopy
 
 class MEI_Metadata_Updater:
-    def __init__(self, source_folder: Optional[str] = None, output_dir: Optional[str] = None, metadata_dict_list: List[Dict] = None):
-        self.source_folder = Path(source_folder) if source_folder else Path.cwd()
-        self.output_dir = Path(output_dir) if output_dir else Path("updated_MEI_files")
-        self.soup = None
-        self.metadata_dict_list = metadata_dict_list if metadata_dict_list else []
-        self.logger = logging.getLogger(__name__)
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-    def _log(self, message):
-        """Creates optional log of errors and processes."""
-        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-        logger = logging.getLogger(__name__)
-        logger.info(message)
+    """
+    A class for processing and updating metadata in MEI (Music Encoding Initiative) files.
+    """
     
-    def get_source_files(self) -> List[str]:
-        """Looks to the designated local folder and creates a list of all .mei files for processing."""
-        if self.source_folder.is_dir():
-            # Debug: Print the contents of the source folder
-            print(f"Contents of {self.source_folder}:")
-            for item in self.source_folder.iterdir():
-                print(f"- {item}")
-
-            # Get all .mei files in the directory
-            files = [f for f in self.source_folder.glob('*.mei')]
-            # Debug: Print the number of .mei files found
-            print(f"Found {len(files)} .mei files in total")
-
-            # Sort the files alphabetically
-            return sorted(files)
-        else:
-            raise ValueError("Source folder is not a valid directory.")
-    
-    def _load_metadata_from_dict_list(self):
-        """Loads a list of dictionaries or json that contain the metadata.  The names of the keys correspond to the keys used to update the various MEI elements."""
-        if not self.metadata_dict_list:
-            raise ValueError("No metadata dictionary list provided.")
-    
-        # You can add any additional processing logic here if needed
-        self._log(f"Loaded {len(self.metadata_dict_list)} metadata dictionaries.")
-    
-    def _get_matching_dict(self, file_name_with_extension: str, metadata: List[Dict]) -> Optional[Dict]:
+    def __init__(self, input_folder=None, output_folder=None, namespace=None, verbose=False):
         """
-        Find matching metadata dictionary. This is used for updating MEI with metadata from a csv or json file
-        """
-        try:
-            matching_dict = next(item for item in metadata if item.get('MEI_Name') == file_name_with_extension)
-            if matching_dict is None:
-                self.logger.warning(f"No matching metadata dictionary found for {file_name_with_extension}")
-                return None
-            return matching_dict
-        except StopIteration:
-            self.logger.warning(f"No matching metadata dictionary found for {file_name_with_extension}")
-            return None
-        except Exception as e:
-            self.logger.error(f"Error finding matching dict for {file_name_with_extension}: {str(e)}")
-            return None
-    
-    def process_files(self, metadata_dict_list: List[Dict]) -> Dict[str, str]:
-        file_paths = self.get_source_files()
-        if not isinstance(file_paths, list):
-            raise TypeError("file_paths must be a list of strings")
-
-        results = {}
-        for file_path in file_paths:
-            try:
-                self.file_path = file_path  # Set the file_path attribute
-                relative_path = str(Path(file_path).relative_to(self.source_folder))
-                
-                # Load the MEI file
-                self.soup = self.load_mei_file(file_path)
-
-                # Find the corresponding metadata dictionary
-                metadata_dict = self._get_matching_dict(file_path.name, metadata_dict_list)
-                
-                if metadata_dict:
-                    # Apply metadata updates
-                    self._apply_metadata_updates(metadata_dict)
-                    
-                    if self.output_dir:
-                        output_path = self.output_dir / Path(relative_path)
-                        self.save_processed_file(self.soup, str(output_path))
-                    
-                    results[file_path] = "success"
-                else:
-                    # Handle cases where no matching metadata is found
-                    self.logger.warning(f"No matching metadata dictionary found for file: {file_path.name}")
-                    results[file_path] = "no_match"
-
-            except Exception as e:
-                results[file_path] = f"error: {str(e)}"
-
-        return results
-
-    def load_mei_file(self, file_path: str) -> BeautifulSoup:
-        """
-        Load and parse MEI XML file, handling both UTF-8 and UTF-16 encodings.
+        Initialize the MEI Metadata Processor.
         
         Args:
-            file_path (str): Path to the MEI XML file
+            input_folder (str, optional): Path to the folder containing MEI files to process.
+            output_folder (str, optional): Path to the folder where updated MEI files will be saved.
+                                          If not provided, will use input_folder.
+            namespace (dict, optional): XML namespace dictionary for MEI files.
+                                       Defaults to {'mei': 'http://www.music-encoding.org/ns/mei'}.
+            verbose (bool, optional): Whether to print detailed processing information. Defaults to False.
+        """
+        self.input_folder = input_folder
+        self.output_folder = output_folder if output_folder else input_folder
+        
+        # Ensure output folder exists
+        if self.output_folder and not os.path.exists(self.output_folder):
+            os.makedirs(self.output_folder)
+            
+        # Set default namespace if not provided
+        self.namespace = namespace if namespace else {'mei': 'http://www.music-encoding.org/ns/mei'}
+        
+        # Verbose mode for debugging
+        self.verbose = verbose
+        
+        # Initialize counters for processing statistics
+        self.processed_files = 0
+        self.successful_updates = 0
+        self.failed_updates = 0
+
+    # now the functions
+    def apply_metadata(self, mei_path, matching_dict, output_folder):
+        """
+        Updates metadata in an MEI file based on the provided matching dictionary.
+        
+        Args:
+            mei_path (str): Path to the MEI file to update
+            matching_dict (dict): Dictionary containing metadata values to apply
+            output_folder (str): Path to the output folder for the updated file
             
         Returns:
-            BeautifulSoup: Parsed XML content
-            
-        Raises:
-            FileNotFoundError: If the file does not exist
-            Exception: If the file cannot be decoded with either UTF-8 or UTF-16
+            str: Formatted XML string of the updated MEI file
         """
-        if not os.path.exists(file_path):
-            self._log(f"File not found: {file_path}")
-            raise FileNotFoundError(f"File not found: {file_path}")
 
-        # Try UTF-8 first (most common)
+
+        # get the file and build revised name
+        full_path = os.path.basename(mei_path)
+        basename = os.path.splitext(os.path.basename(full_path))[0]
+        revised_name = basename + "_rev.mei"
+        print('Getting ' + basename)
+        
         try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                content = file.read()
-                return BeautifulSoup(content, features='lxml-xml')
-                
-        except UnicodeDecodeError:
-            # If UTF-8 fails, try UTF-16
-            try:
-                with open(file_path, 'r', encoding='utf-16') as file:
-                    content = file.read()
-                    return BeautifulSoup(content, features='lxml-xml')
-                    
-            except UnicodeDecodeError:
-                self._log(f"Could not decode file {file_path} with either UTF-8 or UTF-16")
-                raise Exception(f"Unable to decode file {file_path}. Please verify the file encoding.")
-
-    def _apply_metadata_updates(self, metadata_dict: Dict):
-        """Updates the metadata, using one file and its matching metadata dictionary."""
-        self._log(f"Updating metadata for file: {self.file_path}")
-
-        # Clear out all elements from meiHead
-        mei_head = self.soup.find('meiHead')
-        if mei_head:
-            for child in mei_head.find_all(recursively=False):
-                child.decompose()
-
-        # create new fileDesc
-        file_desc = self.soup.new_tag('fileDesc')
-
-        # create new titleStmt
-        title_stmt = self.soup.new_tag('titleStmt')
-        title = self.soup.new_tag('title')
-        title_stmt.append(title)
-
-        # create new respStmt and add to titleStmt
-        resp_stmt = self.soup.new_tag('respStmt')
-        title_stmt.append(resp_stmt)
-
-        # create new pubStmt
-        pub_stmt = self.soup.new_tag('pubStmt')
-        publisher = self.soup.new_tag('publisher')
-        distributor = self.soup.new_tag('distributor')
-        # latest update of the MEI file
-        date = self.soup.new_tag('date')
-        current_date = datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-        date['isodate'] = current_date
-        availability = self.soup.new_tag('availability')
-        # add all the tags to the pub_stmt
-        tag_list = [publisher, distributor, date, availability]
-        for tag in tag_list:
-            pub_stmt.append(tag)
-
-        # add titleStmt and pubStmt to fileDesc 
-        tag_list = [title_stmt, pub_stmt]
-        for tag in tag_list:
-            file_desc.append(tag)
-
-        # add fileDesc to meiHead
-        mei_head.append(file_desc)
-
-         # build encodingDesc and add to head
-        encodingDesc = self.soup.new_tag('encodingDesc')
+            mei_doc = ET.parse(mei_path)
+            root = mei_doc.getroot()
+        except ET.ParseError as e:
+            print(f"Error parsing {mei_path}: {e}")
+            return f"Error: Could not parse {mei_path}. Make sure it contains valid XML."
         
-        # build appInfo
-        appInfo = self.soup.new_tag('appInfo')
-        application = self.soup.new_tag('application')
-        name = self.soup.new_tag('name')
-        application.append(name)
-        appInfo.append(application)
-        encodingDesc.append(appInfo)
-        name.string = "mei metadata processor: url:  https://github.com/RichardFreedman/mei_tools" 
-        # add fileDesc to meiHead
-        mei_head.append(encodingDesc)
+        # define namespace for mei
+        ns = {'mei': 'http://www.music-encoding.org/ns/mei'}
+        
+        # Revert staffDef/label to staffDef/@label
+        staffDefs = root.findall('.//mei:staffDef', namespaces=ns)
+        for staffDef in staffDefs:
+            label = staffDef.find('mei:label', namespaces=ns)
+            if label is not None and label.text:
+                staffDef.set('label', label.text)
 
-        # build workList and add to head
-        workList = self.soup.new_tag('workList')
-        work = self.soup.new_tag('work')
-        title = self.soup.new_tag('title')
-        composer = self.soup.new_tag('composer')
-        classification = self.soup.new_tag('classification')
-        termList = self.soup.new_tag('termList')
-        term = self.soup.new_tag('term')
-        termList.append(term)
-        classification.append(termList)
-        tag_list = [title, composer, classification]
-        for tag in tag_list:
-            work.append(tag)
-        workList.append(work)
-        mei_head.append(workList)
-        
-        # build manifestationList and add to head
-        manifestationList = self.soup.new_tag('manifestationList')
-        # optional identifier for source--could be RISM
-        manifestation = self.soup.new_tag('manifestation')
-        identifier = self.soup.new_tag('identifier')
-        # title of source publication
-        titleStmt = self.soup.new_tag('titleStmt')
-        title = self.soup.new_tag('title')
-        titleStmt.append(title)
-        
-        # build pubStmt for original source in manifestationList
-        pubStmt = self.soup.new_tag('pubStmt')
-        publisher = self.soup.new_tag('publisher')
-        # this is to be the date of the original publication
-        date = self.soup.new_tag('date')
-        
-        # adding publisher and date to the pubStmt
-        tag_list = [publisher, date]
-        for tag in tag_list:
-            pubStmt.append(tag)
-            
-        # build physLoc
-        physLoc = self.soup.new_tag('physLoc')
-        repository = self.soup.new_tag('repository')
-        corpName = self.soup.new_tag('corpName')
-        settlement = self.soup.new_tag('settlement')
-        identifier = self.soup.new_tag('identifier')
-        # adding corpName, settlement, and identifier to physLoc
-        tag_list = [corpName, settlement, identifier]
-        for tag in tag_list:
-            repository.append(tag)
-        physLoc.append(repository)
-        
-        # add titleStmt, pubStmt and physLoc to manifestation
-        tag_list = [titleStmt, pubStmt, physLoc]
-        for tag in tag_list:
-            manifestation.append(tag)
-        
-        # add manifestation to manifestationList and then to meihead
-        manifestationList.append(manifestation)
-        mei_head.append(manifestationList)
+        # work on fileDesc
+        head_el = root.find('mei:meiHead', namespaces=ns)
+        fileDesc_el = head_el.find('mei:fileDesc', namespaces=ns)
 
-        # Now that the head is in place, add the metadata values based on the matching metadata dict
-        
-        # add title to fileDesc and workList
-        title = metadata_dict.get('Title', '')
-        self.soup.find('fileDesc').find('titleStmt').find('title').string = title
-        self.soup.find('workList').find('work').find('title').string = title
+        # title
+        titleStmt_el = fileDesc_el.find('mei:titleStmt', namespaces=ns)
+        titleStmt_el.clear()
+        title_el = ET.SubElement(titleStmt_el, 'title')
+        title_el.text = matching_dict['Title']
 
-        # add composer to fileDesc and workList
-        composer_name = metadata_dict.get('Composer_Name', '')
-        composer_viaf = metadata_dict.get('Composer_VIAF', '')
-        respStmt = self.soup.find('fileDesc').find('respStmt')
-        # add a persName for the composer, plus string and attributes
-        persName = self.soup.new_tag('persName')
-        persName.string = composer_name
-        persName['role'] = 'composer'
-        persName['auth'] = 'VIAF'
-        persName['auth.uri'] = composer_viaf
-        respStmt.append(persName)
-        
-        # also add composer in the workList, too
-        comp_tag = self.soup.find('workList').find('work').find('composer')
-        comp_tag.string = composer_name
-        comp_tag['auth'] = 'VIAF'
-        comp_tag['auth.uri'] = composer_viaf
+        respStmt_el = ET.SubElement(titleStmt_el, 'respStmt')
 
-        # add editors to respStmt
-        editors = metadata_dict.get('Editor', '').split('|') # splits list at "|"
+        # composer
+        composer_el = ET.Element('persName', {
+            'role': 'composer',
+            'auth': 'VIAF',
+            'auth.uri': matching_dict['Composer_VIAF']
+        })
+        composer_el.text = matching_dict['Composer_Name']
+        respStmt_el.append(composer_el)
+
+        # editors
+        editors = matching_dict['Editor'].split('|')
         for editor in editors:
-            editor_tag = self.soup.new_tag('persName')
-            editor_tag.string = editor.strip()
-            editor_tag['role'] = 'editor'
-            resp_stmt.append(editor_tag)
-
-        # add publisher, copyright and rights info for THIS file
-        pub_tag = self.soup.find('fileDesc').find('pubStmt').find('publisher')
-        pub_tag.string = metadata_dict.get('Publisher', '')
-        rights_tag = self.soup.find('fileDesc').find('pubStmt').find('availability')
-        rights_tag.string = metadata_dict.get('Rights_Statement', '')
-        # cc owners
-        dist_tag = self.soup.find('fileDesc').find('pubStmt').find('distributor')
-        owners = metadata_dict.get('Copyright_Owner')
-        owner_list = owners.split("|") # Splits the string at "|"
-        owner_names = [name.strip() for name in owner_list]
-        for owner in owner_names:
-            if "Centre" in owner:
-                owner_tag = self.soup.new_tag('corpName')
-                owner_tag.string = owner
-                dist_tag.append(owner_tag)
-            elif "College" in owner:
-                owner_tag = self.soup.new_tag('corpName')
-                owner_tag.string = owner
-                dist_tag.append(owner_tag)
-            else: 
-                owner_tag = self.soup.new_tag('persName')
-                owner_tag.string = owner
-                dist_tag.append(owner_tag)
-
-    
-        # genre for workList (composer and title already added)
-        genre = metadata_dict.get('Genre', '')
-        self.soup.find('workList').find('work').find('classification').find('termList').find('term').string = genre
-
-        # Manifestation list
-        # authority id
-        source_ref = metadata_dict.get('Source_Reference')
-        self.soup.find('manifestation').find('identifier').string = source_ref
-        
-        # source title
-        source_title = metadata_dict.get('Source_Title', '')
-        self.soup.find('manifestation').find('titleStmt').find('title').string = source_title
-        
-        pub_tag = self.soup.find('manifestation').find('pubStmt').find('publisher')
-        
-        # now deal with pub 1 and metadata
-        if len(metadata_dict.get('Source_Publisher_1')) > 0:
-            source_pub_1_csv = metadata_dict.get('Source_Publisher_1')
-            pub_1_tag = self.soup.new_tag('persName')
-            pub_1_tag.string = source_pub_1_csv
-            # Now, safely attempt to add the 'auth_uri' attribute
-            if isinstance(pub_1_tag, str):
-                print("Error: pub_1_tag should be a BeautifulSoup Tag object, not a string.")
-            else:
-                auth_uri_value = metadata_dict.get('Publisher_1_VIAF', '')
-                pub_1_tag['auth'] = 'VIAF'
-                pub_1_tag['auth.uri'] = auth_uri_value
-        
-            # append pub 1 to the publisher tag in the pubStmt of the manifestation
-            pub_tag.append(pub_1_tag)
-        
-        # now deal with pub 2 and metadata
-        if len(metadata_dict.get('Source_Publisher_2')) > 0:
-            source_pub_2_csv = metadata_dict.get('Source_Publisher_2')
-            pub_2_tag = self.soup.new_tag('persName')
-            pub_2_tag.string = source_pub_2_csv
-            # Now, safely attempt to add the 'auth_uri' attribute
-            if isinstance(pub_1_tag, str):
-                print("Error: pub_2_tag should be a BeautifulSoup Tag object, not a string.")
-            else:
-                auth_uri_value = metadata_dict.get('Publisher_2_VIAF', '')
-                pub_2_tag['auth'] = 'VIAF'
-                pub_2_tag['auth.uri'] = auth_uri_value
-            # append pub 2 to the publisher tag in the pubStmt of the manifestation
-            pub_tag.append(pub_2_tag)
-        
-        # source date--not the current date!
-        if metadata_dict.get('Source_Date') is not None:
-            source_date_csv = metadata_dict.get('Source_Date')
-            date_tag = self.soup.find('manifestationList').find('pubStmt').find('date')
-            date_tag.string = source_date_csv
+            ET.SubElement(respStmt_el, 'persName', {
+                'role': 'editor'
+            }).text = editor.strip()
             
-        # source location
-        source_location = metadata_dict.get('Source_Location')
-        repository_tag = self.soup.find('manifestationList').find('manifestation').find('physLoc').find('repository')
-        repository_tag.append(self.soup.new_tag('geogName'))
-        repository_tag.find('geogName').string = source_location
+        # pubStmt  
+        pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
+        pubStmt_el.clear()
+        pubStmt_el.append(ET.fromstring("""<publisher>
+            Citations: The Renaissance Imitation Mass Project  https://crimproject.org
+        </publisher>"""))
+        for distributor in matching_dict['Copyright_Owner'].split('|'):
+            pubStmt_el.append(ET.fromstring(f'<distributor>{distributor}</distributor>'))
+        current_date = datetime.now().isoformat()
+        pubStmt_el.append(ET.fromstring(f'<date isodate="{current_date}"/>'))
+        pubStmt_el.append(ET.fromstring(f'<availability>{matching_dict["Rights_Statement"]}</availability>'))
+
+        # appInfo
+        appInfo_el = head_el.find('mei:encodingDesc/mei:appInfo', namespaces=ns)
+        application = """<application version="2.0.0">
+            <name>MEI Updater 2025</name>
+        </application>"""
+        appInfo_el.append(ET.fromstring(application))
+
+        # work data
+        worklist_el = head_el.find('mei:workList', namespaces=ns)
+        work_el = worklist_el.find('mei:work', namespaces=ns)
+
+        work_el.find('mei:title', namespaces=ns).text = matching_dict['Title']
+        ET.SubElement(work_el, 'composer').append(deepcopy(composer_el))
+        classification = f'<classification><termList><term>{matching_dict["Genre"].strip()}</term></termList></classification>'
+        work_el.append(ET.fromstring(classification))
+
+        # Create a new manifestationList with a unique ID
+        new_manifestation_list = ET.Element(
+            "manifestationList",
+            attrib={"xml:id": f"manifestationList-{basename}"}
+        )
         
-        # source institution
-        source_institution = metadata_dict.get('Source_Institution')
-        self.soup.find('manifestationList').find('manifestation').find('physLoc').find('repository').find('corpName').string = source_institution
+        # Create the manifestation element
+        manifestation = ET.SubElement(new_manifestation_list, "manifestation")
         
-        # source shelfmark
-        source_shelfmark = metadata_dict.get('Source_Shelfmark')
-        self.soup.find('repository').find('identifier').string = source_shelfmark
+        # Add titleStmt
+        title_stmt = ET.SubElement(manifestation, "titleStmt")
+        title = ET.SubElement(title_stmt, "title")
+        title.text = matching_dict['Source_Title']
+        
+        # Add pubStmt
+        pub_stmt = ET.SubElement(manifestation, "pubStmt")
+        publisher = ET.SubElement(pub_stmt, "publisher")
+        pers_name = ET.SubElement(publisher, "persName")
+        pers_name.set("auth", "VIAF")
+        pers_name.set("auth.uri", matching_dict['Publisher_1_VIAF'])
+        pers_name.text = matching_dict['Source_Publisher_1']
+        
+        # Add date element
+        date = ET.SubElement(pub_stmt, "date")
+        
+        # Add physLoc
+        phys_loc = ET.SubElement(manifestation, "physLoc")
+        repository = ET.SubElement(phys_loc, "repository")
+        corp_name = ET.SubElement(repository, "corpName")
+        corp_name.text = matching_dict['Source_Institution']
+        settlement = ET.SubElement(repository, "settlement")
+        settlement.text = matching_dict['Source_Location']
+        
+        # Add shelfmark
+        shelfmark = ET.SubElement(phys_loc, "identifier")
+        shelfmark.set("type", "shelfmark")
+        shelfmark.text = matching_dict['Source_Shelfmark']
+        
+        # Append to head element instead of root
+        head_el.append(new_manifestation_list)
 
-        self._log("Metadata updates applied successfully")
+        # check for second publisher
+        if (len(matching_dict['Source_Publisher_2'].strip()) > 1):
+            # add second publisher
+            publisher.append(
+                ET.fromstring(f'<persName auth="VIAF" auth.uri="{matching_dict["Publisher_2_VIAF"]}">{matching_dict["Source_Publisher_2"]}</persName>')
+            )
 
-    def save_processed_file(self, soup: BeautifulSoup, output_path: str) -> None:
-        """Save processed MEI file with proper formatting and UTF-8 encoding.
-        Note that we handle xml, mxml and mei files uniformly with UTF-8 encoding."""
-        try:
-            # Add _rev_ to the filename
-            path = Path(output_path)
-            base = path.stem
-            suffix = path.suffix
-            new_path = path.parent / f"{base}_rev{suffix}"
+        # pub date
+        date.text = matching_dict['Source_Date']
 
-            # Use consistent UTF-8 encoding for all file types
-            encoding = 'utf-8'
-            
-            # Create XML declaration with UTF-8 encoding
-            xml_decl = '<?xml version="1.0" encoding="UTF-8"?>'
-            
-            # Ensure proper XML formatting
-            pretty_xml = soup.prettify()
-            
-            # Add XML declaration if missing
-            if not pretty_xml.startswith('<?xml'):
-                pretty_xml = xml_decl + '\n' + pretty_xml
-                
-            # Write file with UTF-8 encoding
-            with open(new_path, 'w', encoding=encoding) as f:
-                f.write(pretty_xml)
-
-            # Verify file was saved
-            saved_file = Path(new_path)
-            if saved_file.exists():
-                self._log(f"File saved successfully: {new_path}")
-                return new_path
-            else:
-                raise FileNotFoundError(f"File not saved: {new_path}")
-                
-        except Exception as e:
-            self._log(f"Error saving processed file: {str(e)}")
-            raise
+        # save the result
+        output_file_path = os.path.join(output_folder, revised_name)
+        
+        # Get the MEI namespace
+        mei_ns = "http://www.music-encoding.org/ns/mei"
+        
+        # Get the meiversion attribute from the root
+        meiversion = root.get("meiversion", "4.0.0")
+        xml_id = root.get("{http://www.w3.org/XML/1998/namespace}id", "m-1")
+        
+        # Convert to string and parse with lxml for better control
+        xml_string = ET.tostring(root)
+        parser = etree.XMLParser(remove_blank_text=True)
+        root_lxml = etree.fromstring(xml_string, parser)
+        
+        # Create a new XML tree with the proper namespace setup
+        new_root = etree.Element("mei", 
+                                nsmap={None: mei_ns},  # Default namespace without prefix
+                                attrib={"meiversion": meiversion,
+                                        "{http://www.w3.org/XML/1998/namespace}id": xml_id})
+        
+        # Copy the content from the original tree
+        for child in root_lxml:
+            new_root.append(child)
+        
+        # Remove namespace prefixes from all elements except the root
+        for elem in new_root.iter():
+            if elem is not new_root:  # Skip the root element
+                if not hasattr(elem.tag, 'find') or elem.tag.find('}') == -1:
+                    continue
+                elem.tag = elem.tag.split('}', 1)[1]  # Remove namespace prefix
+        
+        # Format the XML with proper indentation
+        etree.indent(new_root, space="    ")
+        
+        # Serialize to string with XML declaration
+        formatted_xml = etree.tostring(
+            new_root,
+            pretty_print=True,
+            encoding='utf-8',
+            xml_declaration=True
+        )
+        
+        # Write to file
+        with open(output_file_path, 'wb') as f:
+            f.write(formatted_xml)
+        
+        print(f'Saved updated {revised_name}')
+        return formatted_xml

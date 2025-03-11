@@ -35,7 +35,7 @@ If there are no error messages, you are ready to go!
 
 Next you will need to call up an instance of the processor you want. The following sections explain this in detail for each.
 
-## MEI Metadata Updater
+## A. MEI Metadata Updater
 
 The processor takes in:
 
@@ -85,7 +85,7 @@ We rebuild the MEI to include key elements:
 - **manifestationList** (the details of the original source, including title, date, location)
 
 
-Each of these tags is being created, populated with data from the matching **metadata_dict**, and appended to the appropriate parent element in the MEI structure. Some tags are nested within others, creating a hierarchical structure for the metadata.
+We now create or update each of these tags in turn, populating them with data from the matching **metadata_dict**, and appended to the appropriate parent element in the MEI structure. Some tags are nested within others, creating a hierarchical structure for the metadata.
 
 ### Step 1: Import the Required Libraries
 
@@ -93,30 +93,13 @@ This is the first step before running the processor.
 
 ```python
 #  Import necessary libraries
-from typing import List, Dict, Optional
-from bs4 import BeautifulSoup
-from datetime import datetime
-from pathlib import Path
-import logging
+import mei_tools
+from mei_tools import MEI_Metadata_Updater
+from mei_tools import MEI_Music_Feature_Processor
+import glob
 import os
 import pandas as pd
 ```
-
-Now import the `MEI_Metadata_Updater` from `mei_tools`
-
-```python
-from mei_tools import MEI_Metadata_Updater
-```
-
-#### Optional Error Logging
-
-You can also opt to show a log of errors:
-
-```python
-# logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-```
-
 
 ### Step 2: Load the Metadata from the Google Sheet; Create List of Dictionaries
 
@@ -127,35 +110,50 @@ df = pd.read_csv(metadata_csv_url).fillna('')
 crim_metadata_dict_list = df.to_dict(orient='records')
 ```
 
+#### Step 3.  Specify Input and Output Folders
 
-### Step 3: Set Up the Updater with Source Folder, Output Folder, and Metadata List
 
-This should look something like this.  You might want to give the source and output folders different names than the ones shown here:
+For example:
 
 ```python
-updater = MEI_Metadata_Updater(
-    source_folder="MEI",
-    output_dir="MEI_Updates",
-    metadata_dict_list=crim_metadata_dict_list
-)
+mei_paths = glob.glob('MEI_raw/*')
+output_folder = 'MEI_Updates'
 ```
-### Step 4: Process the Files
+
+#### Step 4. Create an instance of the processor.  
+
+```python
+metadata_updater = MEI_Metadata_Updater()
+```
+
+
+- Optionally you can use `dir(metadata_updater)` to see all the available methods.  In fact there is only one that interests us:  `apply_metadata`
+
+
+#### Step 5:  Build Tuples for Processor
+
+Here we make 'pairs' of each mei file and its corresponding metadata dictionary:
+
+```python
+pairs_to_process = []
+for mei_path in mei_paths:
+    mei_file_name = os.path.basename(mei_path)
+    matching_dict = next((item for item in metadata_dicts if item['MEI_Name'] == mei_file_name), None)
+    tup = mei_path, matching_dict
+    pairs_to_process.append(tup)
+```
+
+#### Step 6: Process the Files
 
 Here we declare the results and run the updater, passing in the metadata dictionary list:
 
 ```python
-results = updater.process_files(crim_metadata_dict_list)
+for mei_file_name, matching_dict in pairs_to_process:
+    metadata_updater.apply_metadata(mei_file_name, matching_dict, output_folder)
 ```
 
-#### Option to Print Summary Report of the Process
 
-
-```python
-file_path, status in results.items():
-    print(f"Processed {status}: {file_path}")
-```
-
-## MEI Music Feature Correction
+## B. MEI Music Feature Correction
 
 The `mei_music_feature_processor.py` is a **modular tool**.  That is:  with any folder of MEI files you have the option to run various independent correction routines.  These are described in detail below, but include:
 
@@ -172,102 +170,72 @@ The `mei_music_feature_processor.py` is a **modular tool**.  That is:  with any 
 
 The modules can be run as a set or singly.
 
-We can also determine the _order_ in which they are run on each file.
-
 It is not difficult to produce other modules for special needs.
 
 
-## Step 1:  Import the Music Feature Processor and Set Up Modules and Folders
+## Step 1:  Create an instance of the processor
+
+`music_feature_processor = MEI_Music_Feature_Processor()`
+
+Optionally you can also see a list of the functions within it:
+
+`dir(music_feature_processor)`
+
+We are only interested in `process_music_features`.
 
 
-We import the **Music Featurer** from mei_tools, and define the soure and output folders.  Also note option to display a full log of the steps taken while the tool runs.
+### Step 2: Now specify the input and ouput folders
+
+For example:
 
 ```python
-from mei_tools import Music_Feature_Processor
-processor = Music_Feature_Processor(source_folder="MEI", # this is your source folder 
-                        output_dir="MEI_Updates", # this is the destination
-                        verbose=False) # this determines whether you see full log of steps
+mei_paths = glob.glob('MEI_Updates/*')
+output_folder = "MEI_Final"
 ```
 
-## Step 2: Enable the Modules
+### Step 3:  Process the Files
 
-`True` or `False` for each!  They must be `True` here to run below!
-
-```python
-processor.remove_incipit = True
-processor.remove_chord = True
-processor.remove_senfl_bracket = True
-processor.remove_empty_verse = True
-processor.remove_lyrics = False
-processor.remove_tstamp_vel = True
-processor.remove_chord = True
-processor.collapse_layers = True
-processor.remove_empty_verses = True
-processor.ficta_to_supplied = True
-processor.add_voice_labels = True
-processor.slur_to_tie = True
-```
-
-
-## Step 3:  Process the Files with the Requested Modules
-
-Note:  Items in this list must be `True` above to work!
-
-```
-results = processor.process_files([
-    'fix_elisions',
-    'slur_to_tie',
-    'remove_incipit',
-    'remove_tstamp_vel',
-    'remove_senfl_bracket',
-    'remove_empty_verse',
-    'collapse_layers',
-    'remove_empty_verses',
-    'remove_chords',
-    'ficta_to_supplied',
-    'add_voice_labels'
-])
-
-```
-### Optional:  Progress Check
-
-Note that this is distinct from the `verbose` setting above, which reports each step for each file!
-
-```
-for file_path, status in results.items():
-    if status == "success":
-        print(f"Successfully processed: {file_path}")
-    else:
-        print(f"Error processing {file_path}: {status}")
-```
-
-### Optional:  Run Just One Module?
 
 
 ```python
-# Create an instance of the processor
-processor = XMLProcessor(
-    source_folder="MEI testing",  # Optional: defaults to current directory
-    output_dir="MEI_Updates_2",   # Optional: defaults to "MEI_Updates"
-    verbose=True
-)
+for mei_path in mei_paths:
+    music_feature_processor.process_music_features(mei_path,
+                                                  output_folder="MEI_Final",
+                                                  remove_incipit=True,
+                                                  remove_variants=True,
+                                                  remove_anchored_text=True,
+                                                  remove_timestamp=True,
+                                                  remove_chord=True,
+                                                  remove_senfl_bracket=False,
+                                                  remove_empty_verse=False,
+                                                  remove_lyrics=False,
+                                                  fix_elisions=True,
+                                                  slur_to_tie=True,
+                                                  collapse_layers=False,
+                                                  correct_ficta=True,
+                                                  voice_labels=True)
 
-# set module to `True`
-
-processor.remove_lyrics = True
-
-# rocess files with lyrics removal
-results = processor.process_files(['remove_lyrics'])
-```
 
 
+# Then, call the method on the instance
+for mei_path in mei_paths:
+    music_feature_processor.process_music_features(mei_path,
+                                                  output_folder="MEI_Final",
+                                                  remove_incipit=True,
+                                                  remove_variants=True,
+                                                  remove_anchored_text=True,
+                                                  remove_timestamp=True,
+                                                  remove_chord=True,
+                                                  remove_senfl_bracket=False,
+                                                  remove_empty_verse=False,
+                                                  remove_lyrics=False,
+                                                  fix_elisions=True,
+                                                  slur_to_tie=True,
+                                                  collapse_layers=False,
+                                                  correct_ficta=True,
+                                                  voice_labels=True)```
 
-#### Notes
-- the `verbose=True` option provides detailed output, which is useful for debugging but may slow down processing.
-- `results` dictionary will contain the outcome for each file processed.
-- Ensure that your `source_folder` contains the MEI files you want to process.
-- The `output_dir` designates where processed files will be saved.
-- Adjust the list of modules in `process_files()` based on your needs.
+
 
 
 ## Detailed Explanation of the Modules
