@@ -42,10 +42,12 @@ class MEI_Metadata_Updater:
     # now the functions
     def apply_metadata(self, mei_path, matching_dict, output_folder):
         """Updates metadata in an MEI file based on the provided matching dictionary.
+        
         Args:
             mei_path (str): Path to the MEI file to update
             matching_dict (dict): Dictionary containing metadata values to apply
             output_folder (str): Path to the output folder for the updated file
+        
         Returns:
             str: Formatted XML string of the updated MEI file
         """
@@ -56,14 +58,27 @@ class MEI_Metadata_Updater:
         print('Getting ' + basename)
         
         try:
-            mei_doc = ET.parse(mei_path)
+            # Parse the MEI file using lxml.etree
+            mei_doc = etree.parse(mei_path)
             root = mei_doc.getroot()
-        except ET.ParseError as e:
+        except etree.ParseError as e:
             print(f"Error parsing {mei_path}: {e}")
             return f"Error: Could not parse {mei_path}. Make sure it contains valid XML."
         
         # define namespace for mei
         ns = {'mei': 'http://www.music-encoding.org/ns/mei'}
+
+        # new ID removal 
+        
+        def remove_ids_from_head_children(element):
+            # Remove xml:id if present
+            attrib_key = "{http://www.w3.org/XML/1998/namespace}id"
+            if attrib_key in element.attrib:
+                del element.attrib[attrib_key]
+                
+            # Recursively process children
+            for child in element:
+                remove_ids_from_head_children(child)
         
         # Revert staffDef/label to staffDef/@label
         staffDefs = root.findall('.//mei:staffDef', namespaces=ns)
@@ -79,12 +94,13 @@ class MEI_Metadata_Updater:
         # title
         titleStmt_el = fileDesc_el.find('mei:titleStmt', namespaces=ns)
         titleStmt_el.clear()
-        title_el = ET.SubElement(titleStmt_el, 'title')
+        title_el = etree.SubElement(titleStmt_el, 'title')
         title_el.text = matching_dict['Title']
-        respStmt_el = ET.SubElement(titleStmt_el, 'respStmt')
+        
+        respStmt_el = etree.SubElement(titleStmt_el, 'respStmt')
         
         # composer
-        composer_el = ET.Element('persName', {
+        composer_el = etree.Element('persName', {
             'role': 'composer',
             'auth': 'VIAF',
             'auth.uri': matching_dict['Composer_VIAF']
@@ -95,64 +111,68 @@ class MEI_Metadata_Updater:
         # editors
         editors = matching_dict['Editor'].split('|')
         for editor in editors:
-            ET.SubElement(respStmt_el, 'persName', {
+            etree.SubElement(respStmt_el, 'persName', {
                 'role': 'editor'
             }).text = editor.strip()
         
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
         pubStmt_el.clear()
-        pubStmt_el.append(ET.fromstring("""<publisher>Citations: The Renaissance Imitation Mass Project  https://crimproject.org</publisher>"""))
+        pubStmt_el.append(etree.fromstring("""<publisher>Citations: The Renaissance Imitation Mass Project  https://crimproject.org</publisher>"""))
+        
         for distributor in matching_dict['Copyright_Owner'].split('|'):
-            pubStmt_el.append(ET.fromstring(f'<distributor>{distributor}</distributor>'))
+            pubStmt_el.append(etree.fromstring(f'<distributor>{distributor}</distributor>'))
+        
         current_date = datetime.now().isoformat()
-        pubStmt_el.append(ET.fromstring(f'<date isodate="{current_date}"/>'))
-        pubStmt_el.append(ET.fromstring(f'<availability>{matching_dict["Rights_Statement"]}</availability>'))
+        pubStmt_el.append(etree.fromstring(f'<date isodate="{current_date}"/>'))
+        pubStmt_el.append(etree.fromstring(f'<availability>{matching_dict["Rights_Statement"]}</availability>'))
         
         # appInfo
         appInfo_el = head_el.find('mei:encodingDesc/mei:appInfo', namespaces=ns)
         application = """<application version="2.0.0"><name>MEI Updater 2025</name></application>"""
-        appInfo_el.append(ET.fromstring(application))
+        appInfo_el.append(etree.fromstring(application))
         
         # work data
         worklist_el = head_el.find('mei:workList', namespaces=ns)
         work_el = worklist_el.find('mei:work', namespaces=ns)
         work_el.find('mei:title', namespaces=ns).text = matching_dict['Title']
-        ET.SubElement(work_el, 'composer').append(deepcopy(composer_el))
+        etree.SubElement(work_el, 'composer').append(deepcopy(composer_el))
+        
         classification = f'<classification><termList><term>{matching_dict["Genre"].strip()}</term></termList></classification>'
-        work_el.append(ET.fromstring(classification))
+        work_el.append(etree.fromstring(classification))
         
         # Create a new manifestationList without any attributes
-        new_manifestation_list = ET.Element("manifestationList")
+        new_manifestation_list = etree.Element("manifestationList")
+        
         # Create the manifestation element
-        manifestation = ET.SubElement(new_manifestation_list, "manifestation")
+        manifestation = etree.SubElement(new_manifestation_list, "manifestation")
         
         # Add titleStmt
-        title_stmt = ET.SubElement(manifestation, "titleStmt")
-        title = ET.SubElement(title_stmt, "title")
+        title_stmt = etree.SubElement(manifestation, "titleStmt")
+        title = etree.SubElement(title_stmt, "title")
         title.text = matching_dict['Source_Title']
         
         # Add pubStmt
-        pub_stmt = ET.SubElement(manifestation, "pubStmt")
-        publisher = ET.SubElement(pub_stmt, "publisher")
-        pers_name = ET.SubElement(publisher, "persName")
+        pub_stmt = etree.SubElement(manifestation, "pubStmt")
+        publisher = etree.SubElement(pub_stmt, "publisher")
+        pers_name = etree.SubElement(publisher, "persName")
         pers_name.set("auth", "VIAF")
         pers_name.set("auth.uri", matching_dict['Publisher_1_VIAF'])
         pers_name.text = matching_dict['Source_Publisher_1']
         
         # Add date element
-        date = ET.SubElement(pub_stmt, "date")
+        date = etree.SubElement(pub_stmt, "date")
         
         # Add physLoc
-        phys_loc = ET.SubElement(manifestation, "physLoc")
-        repository = ET.SubElement(phys_loc, "repository")
-        corp_name = ET.SubElement(repository, "corpName")
+        phys_loc = etree.SubElement(manifestation, "physLoc")
+        repository = etree.SubElement(phys_loc, "repository")
+        corp_name = etree.SubElement(repository, "corpName")
         corp_name.text = matching_dict['Source_Institution']
-        settlement = ET.SubElement(repository, "settlement")
+        settlement = etree.SubElement(repository, "settlement")
         settlement.text = matching_dict['Source_Location']
         
         # Add shelfmark
-        shelfmark = ET.SubElement(phys_loc, "identifier")
+        shelfmark = etree.SubElement(phys_loc, "identifier")
         shelfmark.set("type", "shelfmark")
         shelfmark.text = matching_dict['Source_Shelfmark']
         
@@ -160,14 +180,21 @@ class MEI_Metadata_Updater:
         head_el.append(new_manifestation_list)
         
         # check for second publisher
-        if (len(matching_dict['Source_Publisher_2'].strip()) > 1):
+        if len(matching_dict['Source_Publisher_2'].strip()) > 1:
             # add second publisher
             publisher.append(
-                ET.fromstring(f'<persName auth="VIAF" auth.uri="{matching_dict["Publisher_2_VIAF"]}">{matching_dict["Source_Publisher_2"]}</persName>')
+                etree.fromstring(f'<persName auth="VIAF" auth.uri="{matching_dict["Publisher_2_VIAF"]}">{matching_dict["Source_Publisher_2"]}</persName>')
             )
         
         # pub date
         date.text = matching_dict['Source_Date']
+
+        # now we REMOVE the ids from anywhere in the head
+        head_el = root.find('mei:meiHead', namespaces=ns)
+        if head_el is not None:
+            # Skip root meiHead but process its children
+            for child in head_el:
+                remove_ids_from_head_children(child)
         
         # save the result
         output_file_path = os.path.join(output_folder, revised_name)
@@ -184,6 +211,7 @@ class MEI_Metadata_Updater:
         
         # Format the XML with proper indentation
         etree.indent(root, space="    ")
+
         
         # Serialize to string with XML declaration
         formatted_xml = etree.tostring(
