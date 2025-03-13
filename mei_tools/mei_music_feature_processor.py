@@ -329,8 +329,8 @@ class MEI_Music_Feature_Processor:
                         accid_value = accid.get('accid')
                         
                         # Generate unique IDs
-                        note_random_id = random.randint(10000, 99999)
-                        accid_random_id = random.randint(10000, 99999)
+                        note_random_id = random.randint(1000000, 9999999)
+                        accid_random_id = random.randint(1000000, 9999999)
                         
                         
                         # ns for xml ids
