@@ -15,6 +15,9 @@ class MEI_Music_Feature_Processor:
     def process_music_features(self, mei_path,
                                output_folder,
                                remove_incipit=True,
+                               remove_pb=True,
+                               remove_sb=True,
+                               remove_annotation=True,
                                remove_variants=True,
                                remove_anchored_text=True,
                                remove_timestamp=True,
@@ -98,6 +101,33 @@ class MEI_Music_Feature_Processor:
                         measure.set('n', new_number)
                         measure.set('label', new_number)
                     
+        # page break removal
+        # pb removal
+        if remove_pb == True:
+            # Find pb elements
+            pb_elements = root.findall('.//mei:pb', namespaces=ns)
+            count = len(pb_elements)
+            print(f"Found {count} page breaks to remove.")
+            for pb in pb_elements:
+                pb.getparent().remove(pb)
+            
+        # sb removal
+        if remove_sb == True:
+            # Find sb elements
+            sb_elements = root.findall('.//mei:sb', namespaces=ns)
+            count = len(sb_elements)
+            print(f"Found {count} section breaks to remove.")
+            for sb in sb_elements:
+                sb.getparent().remove(sb)
+              
+        # remove annotation
+        if remove_annotation == True:
+            annotations = root.findall('.//mei:annot', namespaces=ns)
+            count = len(annotations)
+            print(f"Found {count} annotations to remove.")
+            for annotation in annotations:
+                annotation.getparent().remove(annotation)
+                
         # variants
         if remove_variants == True:
             # Find all app elements (variant apparatus)
