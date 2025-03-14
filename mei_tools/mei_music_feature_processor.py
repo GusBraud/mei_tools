@@ -127,7 +127,7 @@ class MEI_Music_Feature_Processor:
             print(f"Found {count} annotations to remove.")
             for annotation in annotations:
                 annotation.getparent().remove(annotation)
-                
+
         # variants
         if remove_variants == True:
             # Find all app elements (variant apparatus)
