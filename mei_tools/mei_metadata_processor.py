@@ -80,12 +80,13 @@ class MEI_Metadata_Updater:
             for child in element:
                 remove_ids_from_head_children(child)
         
+        # already doing this in the music feature tool with optional module
         # Revert staffDef/label to staffDef/@label
-        staffDefs = root.findall('.//mei:staffDef', namespaces=ns)
-        for staffDef in staffDefs:
-            label = staffDef.find('mei:label', namespaces=ns)
-            if label is not None and label.text:
-                staffDef.set('label', label.text)
+        # staffDefs = root.findall('.//mei:staffDef', namespaces=ns)
+        # for staffDef in staffDefs:
+        #     label = staffDef.find('mei:label', namespaces=ns)
+        #     if label is not None and label.text:
+        #         staffDef.set('label', label.text)
         
         # work on fileDesc
         head_el = root.find('mei:meiHead', namespaces=ns)
@@ -129,13 +130,30 @@ class MEI_Metadata_Updater:
         
         # appInfo
         appInfo_el = head_el.find('mei:encodingDesc/mei:appInfo', namespaces=ns)
-        application = """<application version="2.0.0"><name>MEI Updater 2025</name></application>"""
+        if appInfo_el is not None:
+            # Remove all existing application tags
+            for app in appInfo_el.findall('mei:application', namespaces=ns):
+                appInfo_el.remove(app)
+    
+        # Add the new application tag
+        application = """<application version="2.0.0">
+            <name>MEI Updater 2025</name>
+        </application>"""
         appInfo_el.append(etree.fromstring(application))
+        
         
         # work data
         worklist_el = head_el.find('mei:workList', namespaces=ns)
         work_el = worklist_el.find('mei:work', namespaces=ns)
+        # title
         work_el.find('mei:title', namespaces=ns).text = matching_dict['Title']
+        # composer (using persName structure)
+        composer_el = etree.Element('persName', {
+            'role': 'composer',
+            'auth': 'VIAF',
+            'auth.uri': matching_dict['Composer_VIAF']
+        })
+        composer_el.text = matching_dict['Composer_Name']
         etree.SubElement(work_el, 'composer').append(deepcopy(composer_el))
         
         classification = f'<classification><termList><term>{matching_dict["Genre"].strip()}</term></termList></classification>'
@@ -143,39 +161,41 @@ class MEI_Metadata_Updater:
         
         # Create a new manifestationList without any attributes
         new_manifestation_list = etree.Element("manifestationList")
-        
+
         # Create the manifestation element
         manifestation = etree.SubElement(new_manifestation_list, "manifestation")
-        
-        # Add titleStmt
+
+        # Add titleStmt with proper structure
         title_stmt = etree.SubElement(manifestation, "titleStmt")
         title = etree.SubElement(title_stmt, "title")
         title.text = matching_dict['Source_Title']
-        
-        # Add pubStmt
+
+        # Add pubStmt with proper structure
         pub_stmt = etree.SubElement(manifestation, "pubStmt")
         publisher = etree.SubElement(pub_stmt, "publisher")
         pers_name = etree.SubElement(publisher, "persName")
         pers_name.set("auth", "VIAF")
         pers_name.set("auth.uri", matching_dict['Publisher_1_VIAF'])
         pers_name.text = matching_dict['Source_Publisher_1']
-        
+
         # Add date element
         date = etree.SubElement(pub_stmt, "date")
-        
-        # Add physLoc
+        date.text = matching_dict['Source_Date']
+
+        # Add physLoc with proper structure
         phys_loc = etree.SubElement(manifestation, "physLoc")
         repository = etree.SubElement(phys_loc, "repository")
         corp_name = etree.SubElement(repository, "corpName")
         corp_name.text = matching_dict['Source_Institution']
-        settlement = etree.SubElement(repository, "settlement")
-        settlement.text = matching_dict['Source_Location']
-        
-        # Add shelfmark
-        shelfmark = etree.SubElement(phys_loc, "identifier")
-        shelfmark.set("type", "shelfmark")
-        shelfmark.text = matching_dict['Source_Shelfmark']
-        
+
+        # Add shelfmark with proper structure
+        identifier = etree.SubElement(repository, "identifier")
+        identifier.text = matching_dict['Source_Shelfmark']
+
+        # Add geogName with proper structure
+        geog_name = etree.SubElement(repository, "geogName")
+        geog_name.text = matching_dict['Source_Location']
+
         # Append to head element instead of root
         head_el.append(new_manifestation_list)
         
