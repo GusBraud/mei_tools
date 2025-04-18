@@ -18,10 +18,13 @@ class MEI_Music_Feature_Processor:
                                remove_pb=True,
                                remove_sb=True,
                                remove_annotation=True,
+                               remove_ligature_bracket=True,
+                               remove_dir=True,
                                remove_variants=True,
                                remove_anchored_text=True,
                                remove_timestamp=True,
                                remove_chord=True,
+                               check_for_chords=True,
                                remove_senfl_bracket=False,
                                remove_empty_verse=False,
                                remove_lyrics=False,
@@ -29,7 +32,8 @@ class MEI_Music_Feature_Processor:
                                slur_to_tie=True,
                                collapse_layers=False,
                                correct_ficta=True,
-                               voice_labels=True):
+                               voice_labels=True,
+                               correct_cmme_time_signatures=True):
         """ 
         This function will correct various music feature problems in MEI files.  
         All the subfunctions have default values, but these can be changed by passing in a Boolean, 
@@ -128,6 +132,24 @@ class MEI_Music_Feature_Processor:
             for annotation in annotations:
                 annotation.getparent().remove(annotation)
 
+        # dir elements, which are like annotations
+        if remove_dir == True:
+            # Find pb elements
+            dir_elements = root.findall('.//mei:dir', namespaces=ns)
+            count = len(dir_elements)
+            print(f"Found {count} direction elements to remove.")
+            for dir in dir_elements:
+                dir.getparent().remove(dir)
+
+        # ligature brackets
+        if remove_ligature_bracket == True:
+            # Find pb elements
+            bracket_elements = root.findall('.//mei:bracketSpan', namespaces=ns)
+            count = len(bracket_elements)
+            print(f"Found {count} ligatures to remove.")
+            for bracket in bracket_elements:
+                bracket.getparent().remove(bracket)
+        
         # variants
         if remove_variants == True:
             # Find all app elements (variant apparatus)
@@ -211,6 +233,32 @@ class MEI_Music_Feature_Processor:
                 if 'tstamp2' in tie.attrib:
                     del tie.attrib['tstamp2']    
         
+        # Find all scoreDef elements
+        if correct_cmme_time_signatures == True:
+            score_defs = root.findall('.//mei:scoreDef', namespaces=ns)
+            count = len(score_defs)
+            print(f"Found {count} scoreDef elements to process.")
+            
+            for score_def in score_defs:
+                # Find the first staffDef in this scoreDef
+                first_staff_def = score_def.find('.//mei:staffDef', namespaces=ns)
+                
+                if first_staff_def is not None:
+                    # Get meter attributes from first staffDef
+                    meter_count = first_staff_def.get('meter.count')
+                    meter_unit = first_staff_def.get('meter.unit')
+                    
+                    if meter_count and meter_unit:
+                        # Add meter attributes to scoreDef
+                        score_def.set('meter.count', meter_count)
+                        score_def.set('meter.unit', meter_unit)
+                        
+                        # Remove meter attributes from all staffDefs in this scoreDef
+                        staff_defs = score_def.findall('.//mei:staffDef', namespaces=ns)
+                        for staff_def in staff_defs:
+                            staff_def.attrib.pop('meter.count', None)
+                            staff_def.attrib.pop('meter.unit', None)
+        
         # Remove chord elements
         if remove_chord == True:
             chords = root.findall('.//mei:chord', namespaces=ns)
@@ -220,6 +268,16 @@ class MEI_Music_Feature_Processor:
             for chord in chords:
                 parent = chord.getparent()
                 parent.remove(chord)
+
+        # Remove chord elements
+        if check_for_chords == True:
+            chords = root.findall('.//mei:chord', namespaces=ns)
+            count = len(chords)
+            for chord in chords:
+                parent = chord.getparent()
+                measure_number = parent.get('n')
+
+                print(f"Chord element found in measure {measure_number}" )
         
         # Remove Senfl brackets
         if remove_senfl_bracket == True:
