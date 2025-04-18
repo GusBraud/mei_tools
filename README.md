@@ -216,10 +216,16 @@ for mei_path in mei_paths:
     music_feature_processor.process_music_features(mei_path,
                                                   output_folder="MEI_Final",
                                                   remove_incipit=True,
+                                                  remove_pb=True,
+                                                  remove_sb=True,
+                                                  remove_annotation=True,
+                                                  remove_ligature_bracket=True,
+                                                  remove_dir=True,
                                                   remove_variants=True,
                                                   remove_anchored_text=True,
                                                   remove_timestamp=True,
                                                   remove_chord=True,
+                                                  check_for_chords=True,
                                                   remove_senfl_bracket=False,
                                                   remove_empty_verse=False,
                                                   remove_lyrics=False,
@@ -227,7 +233,8 @@ for mei_path in mei_paths:
                                                   slur_to_tie=True,
                                                   collapse_layers=False,
                                                   correct_ficta=True,
-                                                  voice_labels=True)
+                                                  voice_labels=True,
+                                                  correct_cmme_time_signatures=True)
 ```
 
 
@@ -321,5 +328,18 @@ Remove all lyrics, including nested verse elements.  Some files imported from XM
 
 Add voice labels to staff definitions.  It is helpful for Verovio and  CRIM intervals to have voice names as 'label' attributes in our files.  This module takes care of that.
 
+#### correct_cmme_time_signatures
 
+For export from CMME files, adds the time signature attributes to the scoreDef and removes them from staffDef
 
+#### remove_ligature_bracket
+
+For export from CMME files removes the bracketSpan elements used for ligatures and coloration
+
+### remove_dir
+
+removes dir elements
+
+#### check_for_chords
+
+reports location of chord elements in each piece.  Does not remove them (but see chord removal module)
