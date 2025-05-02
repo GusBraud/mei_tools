@@ -2,6 +2,7 @@ import os
 import random
 from lxml import etree
 import xml.etree.ElementTree as ET
+import glob as glob
 
 class MEI_Music_Feature_Processor:
     """
@@ -33,7 +34,9 @@ class MEI_Music_Feature_Processor:
                                collapse_layers=False,
                                correct_ficta=True,
                                voice_labels=True,
-                               correct_cmme_time_signatures=True):
+                               correct_cmme_time_signatures=False,
+                               correct_jrp_time_signatures=False,
+                               correct_mrests=True):
         """ 
         This function will correct various music feature problems in MEI files.  
         All the subfunctions have default values, but these can be changed by passing in a Boolean, 
@@ -55,9 +58,6 @@ class MEI_Music_Feature_Processor:
             remove_incipit=True,
             remove_variants=True,
             output_folder)
-
-
-
         """
         # get the file and build revised name
         full_path = os.path.basename(mei_path)
@@ -75,8 +75,10 @@ class MEI_Music_Feature_Processor:
             return f"Error: Could not parse {mei_path}. Make sure it contains valid XML."
         
 
-        # Define the MEI namespace
-        ns = {'mei': 'http://www.music-encoding.org/ns/mei'}
+        # Define the namespaces
+        ns = {'mei': 'http://www.music-encoding.org/ns/mei',
+              'xml': 'http://www.w3.org/XML/1998/namespace'
+        }
 
         # inicipt removal
         if remove_incipit == True:
@@ -233,7 +235,7 @@ class MEI_Music_Feature_Processor:
                 if 'tstamp2' in tie.attrib:
                     del tie.attrib['tstamp2']    
         
-        # Find all scoreDef elements
+        # add time signature information to all scoreDefs (for CMME and JRP)
         if correct_cmme_time_signatures == True:
             score_defs = root.findall('.//mei:scoreDef', namespaces=ns)
             count = len(score_defs)
@@ -259,7 +261,140 @@ class MEI_Music_Feature_Processor:
                             staff_def.attrib.pop('meter.count', None)
                             staff_def.attrib.pop('meter.unit', None)
         
-        # Remove chord elements
+        # add time signature information to scoreDef for JRP meterSig codings
+        if correct_jrp_time_signatures == True:
+            score_defs = root.findall('.//mei:scoreDef', namespaces=ns)
+            count = len(score_defs)
+            print(f"Found {count} scoreDef elements to process.")
+            
+            for score_def in score_defs:
+                # Find the first staffDef in this scoreDef
+                meterSig = score_def.find('.//mei:meterSig', namespaces=ns)
+                
+                if meterSig is not None:
+                    # Get meter attributes from first staffDef
+                    meter_count = meterSig.get('count')
+                    meter_unit = meterSig.get('unit')
+                    
+                    if meter_count and meter_unit:
+                        # Add meter attributes to scoreDef
+                        score_def.set('meter.count', meter_count)
+                        score_def.set('meter.unit', meter_unit)
+                                     
+        # fix mrests under 3/1
+        if correct_mrests == True:
+            # First pass: identify which measures should be processed
+            # Build a parent map for efficient parent lookup
+            parent_map = {c: p for p in root.iter() for c in p}
+            # set counter
+            mRest_counter = 0
+            
+            # First: find all scoreDef and measure elements in document order
+            elements = []
+            for element in root.iter():
+                if element.tag == f"{{{ns['mei']}}}scoreDef" or element.tag == f"{{{ns['mei']}}}measure":
+                    elements.append(element)
+            
+            # Track which measures should be processed
+            measures_to_process = set()
+            current_meter_valid = False
+            
+            # Process elements in document order
+            for element in elements:
+                if element.tag == f"{{{ns['mei']}}}scoreDef":
+                    # Check if this scoreDef has the required meter attributes
+                    meter_count = element.get('meter.count')
+                    meter_unit = element.get('meter.unit')
+                    
+                    if meter_count == '3' and meter_unit == '1':
+                        current_meter_valid = True
+                        # Fix the f-string syntax
+                        xml_id = element.get(f"{{{ns['xml']}}}id")
+                        print(f"Found scoreDef with meter.count=3 and meter.unit=1")
+                    elif meter_count is not None or meter_unit is not None:
+                        # Any other scoreDef with meter attributes resets our context
+                        current_meter_valid = False
+                
+                elif element.tag == f"{{{ns['mei']}}}measure" and current_meter_valid:
+                    # If we're in a valid meter context, mark this measure for processing
+                    measure_id = element.get(f"{{{ns['xml']}}}id")
+                    if measure_id:
+                        measures_to_process.add(measure_id)
+                        # print(f"Adding measure {measure_id} to processing list")
+            
+            print(f"Found {len(measures_to_process)} 3/1 measures check for mRests.")
+            
+            # Process each identified measure
+            
+            for measure_id in measures_to_process:
+                # Find the measure by ID
+                measure = root.find(f'.//mei:measure[@xml:id="{measure_id}"]', namespaces=ns)
+                if measure is None:
+                    continue
+                
+                # Find all mRest elements in this measure
+                mrests = measure.findall('.//mei:mRest', namespaces=ns)
+                # print(f"Found {len(mrests)} mRest elements in measure {measure_id}.")
+                
+                for mrest in mrests:
+                    # Use the parent map to find the parent layer of this mRest
+                    if mrest not in parent_map:
+                        continue
+                        
+                    parent = parent_map[mrest]
+                    
+                    # Find the layer that contains this mRest
+                    layer = parent
+                    while layer is not None and not layer.tag.endswith('layer'):
+                        if layer in parent_map:
+                            layer = parent_map[layer]
+                        else:
+                            layer = None
+                    
+                    if layer is None:
+                        xml_id = mrest.get(f"{{{ns['xml']}}}id")
+                        # print(f"Warning: Could not find layer for mRest {xml_id}")
+                        continue
+                    
+                    # Get the original mRest ID
+                    mrest_id = mrest.get(f"{{{ns['xml']}}}id")
+                    if not mrest_id:
+                        continue          
+                    # print(f"Processing mRest {mrest_id}")
+                    
+                    # Find the index where we should insert the new rests
+                    if parent is layer:
+                        for i, child in enumerate(layer):
+                            if child is mrest:
+                                insert_index = i
+                                break
+                        else:
+                            insert_index = len(layer)
+                    else:
+                        insert_index = len(layer)
+                    
+                    # Create multiple rest elements
+                    for i in range(3):
+                        # Create a new rest element and set attributes
+                        rest = etree.Element(f"{{{ns['mei']}}}rest")
+                        rest.set(f"{{{ns['xml']}}}id", f"{mrest_id}{chr(97 + i)}")
+                        rest.set('dur', '1')
+                        rest.set('dur.ppq', '1024')
+                        
+                        # Insert the rest into the layer
+                        layer.insert(insert_index + i, rest)
+                        # print(f"Created rest {mrest_id}{chr(97 + i)}")
+                    
+                    # Remove the original mRest from its parent
+                    parent.remove(mrest)
+                    mRest_counter +=1
+                    # print(f"Removed mRest {mrest_id}")
+                    
+                    # Update the parent map since we've modified the tree
+                    parent_map = {c: p for p in root.iter() for c in p}
+            print(f"Corrected {mRest_counter} mRests")
+    
+        #  Remove chord elements
         if remove_chord == True:
             chords = root.findall('.//mei:chord', namespaces=ns)
             count = len(chords)
@@ -382,8 +517,6 @@ class MEI_Music_Feature_Processor:
                                 # Remove the empty layer
                                 layer.getparent().remove(layer)
                             
-
-        
         # correcting ficta as supplied
         if correct_ficta == True:
             # remove 'dir' tags - try both with and without namespace
@@ -419,7 +552,6 @@ class MEI_Music_Feature_Processor:
                         # Generate unique IDs
                         note_random_id = random.randint(1000000, 9999999)
                         accid_random_id = random.randint(1000000, 9999999)
-                        
                         
                         # ns for xml ids
                         XML_NS = 'http://www.w3.org/XML/1998/namespace'
