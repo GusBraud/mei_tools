@@ -354,7 +354,7 @@ For export from CMME files removes the bracketSpan elements used for ligatures a
 
 ---
 
-### remove_dir
+#### remove_dir
 
 removes dir elements
 
@@ -365,7 +365,7 @@ removes dir elements
 reports location of chord elements in each piece.  Does not remove them (but see chord removal module)
 
 ---
-### correct_mrests
+#### correct_mrests
 
 music21 does not correctly interpret mRest values under 3/1 mensuration. This function finds those mRests and replaces them with three semibreve (whole note) rests.
 
