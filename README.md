@@ -124,8 +124,8 @@ crim_metadata_dict_list = df.to_dict(orient='records')
 For example:
 
 ```python
-mei_paths = glob.glob('MEI_raw/*')
-output_folder = 'MEI_Updates'
+mei_paths = glob.glob('MEI_IN/*')
+output_folder = 'MEI_OUT'
 ```
 
 #### Step 4. Create an instance of the processor.  
@@ -214,7 +214,7 @@ Adjust the Booleans for each module as needed:
 ```python
 for mei_path in mei_paths:
     music_feature_processor.process_music_features(mei_path,
-                                                  output_folder="MEI_Final",
+                                                  output_folder,
                                                   remove_incipit=True,
                                                   remove_pb=True,
                                                   remove_sb=True,
@@ -234,9 +234,10 @@ for mei_path in mei_paths:
                                                   collapse_layers=False,
                                                   correct_ficta=True,
                                                   voice_labels=True,
-                                                  correct_cmme_time_signatures=True)
+                                                  correct_cmme_time_signatures=False,
+                                                  correct_jrp_time_signatures=False,
+                                                  correct_mrests=True)
 ```
-
 
 
 ## Detailed Explanation of the Modules
@@ -244,102 +245,127 @@ for mei_path in mei_paths:
 Note:  We can easily add more modules based on your experience with particular MEI files.
 
 
-#### _fix_elisions
+#### fix_elisions
 
 Fix syllable elisions in the MEI files.  When exported from Sibelius the elisions results in two syllable elements per note.  This module finds the double syllable notes, then reformats the two syllables as a single
 tag for that note.  The two syllables are connected with an underscore, which renders correctly in Verovio, and is valid MEI.
 
 ---
 
-#### _slur_to_tie
+#### slur_to_tie
 
 Replace slurs with ties in MEI files.  Occasionally editors mistakenly encode ties as slurs.  This module checks for these and fixes them.
 
 ---
 
-#### _ficta_to_supplied
+#### ficta_to_supplied
 
 Convert ficta to supplied.  With the Sib_MEI export module, musica ficta is stored as text and not as a supplied element.  This module fixes such errors, provided that the note to which the ficta appliesis given the color 'red' in the original Sibelius file.  The function looks for accid elements associated with red notes and converts them into proper MEI supplied elements.
 
 ---
 
-#### _remove_variants
+#### remove_variants
 
 Remove variant elements and their contents.  Files with <app> elements include variant readings. There are some cases in which we want to preserve only the lemma (for example:  analysis).This module removes the <app> elements.
 
 ---
 
-#### _remove_chords
+#### remove_chords
 
 Remove chord elements.  These are sometimes found in XML files, and this module removes them.
 
 ---
 
-#### _collapse_layers
+#### collapse_layers
 
 Collapse layers within staff elements.  Again, some files put notes on different MEI layers.  This module combines those layers.
 
 ---
 
-#### _remove_empty_verses
+#### remove_empty_verses
 
 Remove empty verse elements.  In some cases we find extra verse elements that nevertheless lack content.  These create problems for layout with Verovio, and so we can remove them.
 
 ---
 
-#### _remove_anchored_text
+#### remove_anchored_text
 
 Remove anchoredText elements.  Anchored text elements can create strange effects when we render files with Verovio.  We can remove them with this module.
 
 ---
 
-#### _remove_incipit
+#### remove_incipit
 
 Process measure numbers after removing incipit.  Some early music files include incipits (prefatory staves) that include information about original clefs and noteheads.  These are normally given a lable of "0" in the original file.  But they can disrupt the regular measure numbers throughout the remainder of the score.  This module removes the incipit and renumbers the remaining bars so that the labels and bar numbers are the same, and start with "1". 
 
 ---
 
-#### _remove_tstamp_vel
+#### remove_tstamp_vel
 
 Remove timestamp and velocity attributes from notes, rests, and mRests.  The tstamp.real attribute might be a problem in some contexts, and so we remove it. 
         
 
 ---
 
-#### _remove_senfl_bracket
+#### remove_senfl_bracket
 
 Remove Senfl bracket elements. This module removes some special brackets inserted by editors of the Senfl edition.
 
 ---
 
-#### _remove_empty_verse
+#### remove_empty_verse
 
 Remove empty verse elements.  Some verse elements are in fact empty, and can distort formatting with Verovio.  We remove them with this module.
 
 ---
 
-#### _remove_lyrics
+#### remove_lyrics
 
 Remove all lyrics, including nested verse elements.  Some files imported from XML or other sources have corrupted lyrics.  Sometimes it is simply better to start over with text underlay in this case, and so this module removes all lyrics.  The files can then be opened with MuseScore for further updates.
 
 ---
 
-#### _add_voice_labels
+#### voice_labels
 
 Add voice labels to staff definitions.  It is helpful for Verovio and  CRIM intervals to have voice names as 'label' attributes in our files.  This module takes care of that.
 
+---
+
 #### correct_cmme_time_signatures
 
-For export from CMME files, adds the time signature attributes to the scoreDef and removes them from staffDef
+
+
+For files created by CMME and JRP projects, adds the time signature attributes to the scoreDef and removes them from staffDef.
+
+---
+
+#### correct_jrp_time_signatures
+
+
+
+Related to the above, JRP staffDefs have meterSig elements.  This function finds those and add the information to the scoreDef.
+
+
+---
 
 #### remove_ligature_bracket
 
 For export from CMME files removes the bracketSpan elements used for ligatures and coloration
 
+---
+
 ### remove_dir
 
 removes dir elements
 
+---
+
 #### check_for_chords
 
 reports location of chord elements in each piece.  Does not remove them (but see chord removal module)
+
+---
+### correct_mrests
+
+music21 does not correctly interpret mRest values under 3/1 mensuration. This function finds those mRests and replaces them with three semibreve (whole note) rests.
+
