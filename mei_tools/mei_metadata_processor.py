@@ -113,7 +113,7 @@ class MEI_Metadata_Updater:
         editors = matching_dict['Editor'].split('|')
         for editor in editors:
             etree.SubElement(respStmt_el, 'persName', {
-                'role': 'editor'
+                'role': 'editor',
                 'auth': 'ORCID',
                 'auth.uri': matching_dict['Editor_ORCID'].split('|')
             }).text = editor.strip()
