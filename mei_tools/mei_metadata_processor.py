@@ -115,8 +115,8 @@ class MEI_Metadata_Updater:
             etree.SubElement(respStmt_el, 'persName', {
                 'role': 'editor',
                 'auth': 'ORCID',
-                'auth.uri': matching_dict['Editor_ORCID'].split('|')
-            }).text = editor.strip()
+                'auth.uri': matching_dict['Editor_ORCID']
+        })
         
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
