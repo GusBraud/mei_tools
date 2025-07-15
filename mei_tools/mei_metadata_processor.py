@@ -99,25 +99,16 @@ class MEI_Metadata_Updater:
         title_el.text = matching_dict['Title']
         
         respStmt_el = etree.SubElement(titleStmt_el, 'respStmt')
-        
-        # composer
-        composer_el = etree.Element('persName', {
-            'role': 'composer',
-            'auth': 'VIAF',
-            'auth.uri': matching_dict['Composer_VIAF']
-        })
-        composer_el.text = matching_dict['Composer_Name']
-        respStmt_el.append(composer_el)
-        
         # editors
         editors = matching_dict['Editor'].split('|')
-        for editor in editors:
-            etree.SubElement(respStmt_el, 'persName', {
-                'role': 'editor',
-                'auth': 'ORCID',
-                'auth.uri': matching_dict['Editor_ORCID']
+        editor_el = etree.Element('persName', {
+            'role': 'editor',
+            'auth': 'ORCID',
+            'auth.uri': matching_dict['Editor_ORCID'].split('|')
         })
-        
+        editor_el.text = matching_dict['Editor'].split('|')
+        respStmt_el.append(editor_el)
+   
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
         pubStmt_el.clear()
