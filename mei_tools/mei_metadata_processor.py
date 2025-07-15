@@ -114,6 +114,8 @@ class MEI_Metadata_Updater:
         for editor in editors:
             etree.SubElement(respStmt_el, 'persName', {
                 'role': 'editor'
+                'auth': 'ORCID',
+                'auth.uri': matching_dict['Editor_ORCID'].split('|')
             }).text = editor.strip()
         
         # pubStmt
