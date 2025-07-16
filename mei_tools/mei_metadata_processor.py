@@ -101,10 +101,11 @@ class MEI_Metadata_Updater:
         
         respStmt_el = etree.SubElement(titleStmt_el, 'respStmt')
         # editors 
-        editors = matching_dict['Editor'] 
-        for editor in editors:
-            editor_el = etree.Element('persName', {'role': 'editor'}, {'auth': 'ORCID'}, {'auth.uri': matching_dict['Editor_ORCID']})
-            editor_el.text = editor.strip()            
+        editors = matching_dict['Editor'].split(' | ')
+        orcids = matching_dict['Editor_ORCID'].split(' | ')
+        for editor, orcid in zip(editors, orcids):
+            editor_el = etree.Element('persName', {'role': 'editor', 'auth': 'ORCID', 'auth.uri': orcid})
+            editor_el.text = editor.strip()  
    
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
