@@ -4,7 +4,6 @@ from lxml import etree
 from datetime import datetime
 from copy import deepcopy
 
-
 class MEI_Metadata_Updater:
     """
     A class for processing and updating metadata in MEI (Music Encoding Initiative) files.
@@ -110,7 +109,7 @@ class MEI_Metadata_Updater:
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
         pubStmt_el.clear()
-        pubStmt_el.append(etree.fromstring("""<publisher>Gesualdo Online  https://ricercardatalab.cesr.univ-tours.fr/fr/projects/3/"""))
+        pubStmt_el.append(etree.fromstring("""<publisher>Gesualdo Online https://ricercardatalab.cesr.univ-tours.fr/fr/projects/3/"""))
         
         for distributor in matching_dict['Copyright_Owner'].split('|'):
             pubStmt_el.append(etree.fromstring(f'<distributor>{distributor}</distributor>'))
