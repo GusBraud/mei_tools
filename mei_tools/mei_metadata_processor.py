@@ -40,7 +40,7 @@ class MEI_Metadata_Updater:
         self.failed_updates = 0
 
     # now the functions
-    def apply_metadata(self, mei_file_path, metadata_dict, output_folder):
+        def apply_metadata(self, mei_file_path, metadata_dict, output_folder):
         """
         Applies metadata from a dictionary to an MEI file.
 
@@ -419,4 +419,5 @@ class MEI_Metadata_Updater:
             print(f"Successfully updated metadata for {os.path.basename(mei_file_path)} and saved to {output_path}")
         except Exception as e:
             print(f"Error saving updated MEI file {output_path}: {e}")
+
 
