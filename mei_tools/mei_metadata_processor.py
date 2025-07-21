@@ -143,8 +143,8 @@ class MEI_Metadata_Updater:
             'auth': 'VIAF',
             'auth.uri': matching_dict['Composer_VIAF']
         })
-        composer_el.text = matching_dict['Composer_Name']
-        etree.SubElement(work_el, 'composer').append(deepcopy(composer_el))
+       # composer_el.text = matching_dict['Composer_Name']
+       # etree.SubElement(work_el, 'composer').append(deepcopy(composer_el))
         
         classification = f'<classification><termList><term>{matching_dict["Genre"].strip()}</term></termList></classification>'
         work_el.append(etree.fromstring(classification))
