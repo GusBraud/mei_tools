@@ -103,8 +103,8 @@ class MEI_Metadata_Updater:
         editors = matching_dict['Editor'].split(' | ')
         orcids = matching_dict['Editor_ORCID'].split(' | ')
         for editor, orcid in zip(editors, orcids):
-            # editor_el = etree.Element('persName', {'role': 'editor', 'auth': 'ORCID', 'auth.uri': orcid})
-            # editor_el.text = editor.strip()  
+            editor_el = etree.Element('persName', {'role': 'editor', 'auth': 'ORCID', 'auth.uri': orcid})
+            editor_el.text = editor.strip()  
    
         # pubStmt
         pubStmt_el = fileDesc_el.find('mei:pubStmt', namespaces=ns)
