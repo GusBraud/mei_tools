@@ -1,6 +1,7 @@
 import os
 import xml.etree.ElementTree as ET
-from lxml import etree
+python -m pip uninstall lxml
+python -m pip install lxml==3.6.0
 from datetime import datetime
 from copy import deepcopy
 
